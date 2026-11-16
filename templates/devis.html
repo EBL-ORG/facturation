@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Devis {{ devis_num }} - E-BUSINESSLAB</title>
+    <title>Devis {{ devis_num }} - {{ company.name }}</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -132,23 +132,34 @@
             margin-bottom: 5px;
         }
 
+        .company-logo {
+            max-height: 58px;
+            max-width: 180px;
+            display: block;
+            margin-bottom: 6px;
+            object-fit: contain;
+        }
+
         .company-address {
             font-size: 10px;
             font-weight: bold;
             line-height: 1.5;
             margin-bottom: 4px;
+            white-space: pre-line;
         }
 
         .company-desc {
             font-size: 10px;
             max-width: 230px;
             line-height: 1.5;
+            white-space: pre-line;
         }
 
         .company-right {
             font-size: 10px;
             line-height: 1.8;
             text-align: right;
+            white-space: pre-line;
         }
 
         .separator {
@@ -424,9 +435,12 @@
         #toast.success { background: #16a34a; }
         #toast.error   { background: #dc2626; }
     </style>
+    {% include "_doc_theme.html" %}
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
+{% include "_sidebar.html" %}
 
 <!-- ── Injected server data ── -->
 <script type="application/json" id="devis-data">
@@ -473,94 +487,58 @@ const DEVIS_ID = DEVIS_DATA ? DEVIS_DATA.id : null;
 <!-- Toast notification -->
 <div id="toast"></div>
 
+{% include "_client_picker.html" %}
 <div class="invoice">
 
     <!-- ══ HEADER ══ -->
-    <div class="header">
-        <div class="company-left">
-            <div class="company-name">E-BUSINESSLAB - EURL</div>
-            <div class="company-address">
-                Adresse : Rue Colonel Amirouche Bordj el Kiffan,<br>
-                Bab Ezzouar, Alger, Algérie
-            </div>
-            <div class="company-desc">
-                Entreprise Algérienne spécialisée dans l'accompagnement<br>
-                stratégique, le marketing, le développement et les solutions digitales
-            </div>
+    <div class="inv-header">
+        <div class="inv-logo">
+            {% if company.logo %}<img src="/logo" alt="Logo {{ company.name }}" style="width: {{ company.logo_size }}px">{% else %}{{ company.name[:1] }}{% endif %}
         </div>
-        <div class="company-right">
-            <strong>RC :</strong> 25B1054070 - 16/00<br>
-            <strong>NIS :</strong> 0025 1630 02578 41<br>
-            <strong>NIF :</strong> 002516105407061<br>
-            <strong>AI :</strong> 16300214211<br>
-            <strong>Tél :</strong> 0661 490 490<br>
-            <strong>Email :</strong> info@ebusinesslabdz.com<br>
-            <strong>Web :</strong> www.ebusinesslabdz.com
+        <div class="inv-company">
+            {% if not company.logo %}<h1>{{ company.name }}</h1>{% endif %}
+            {% if company.description %}<p>{{ company.description }}</p>{% endif %}
+            {% if company.address %}<p><b>Adresse :</b> {{ company.address }}</p>{% endif %}
+            <p>
+                {% if company.rc %}<b>RC :</b> {{ company.rc }}{% endif %}
+                {% if company.nif %} &nbsp; <b>NIF :</b> {{ company.nif }}{% endif %}
+                {% if company.ai %} &nbsp; <b>AI :</b> {{ company.ai }}{% endif %}
+                {% if company.nis %} &nbsp; <b>NIS :</b> {{ company.nis }}{% endif %}
+            </p>
+            <p>
+                {% if company.phone %}<b>Tél :</b> {{ company.phone }}{% endif %}
+                {% if company.email %} &nbsp; <b>Email :</b> {{ company.email }}{% endif %}
+                {% if company.website %} &nbsp; <b>Web :</b> {{ company.website }}{% endif %}
+            </p>
         </div>
     </div>
-
-    <hr class="separator">
 
     <!-- ══ DOCUMENT TITLE ══ -->
-    <div class="doc-title">Devis</div>
-
-    <!-- ══ META INFO + CLIENT ══ -->
-    <div class="meta-section">
-        <div class="meta-left">
-            <div class="field-row">
-                <span class="field-label"><strong>N° Devis :</strong></span>
-                <input type="text" class="field-input" id="devis-num" readonly>
-            </div>
-            <div class="field-row">
-                <span class="field-label"><strong>Date :</strong></span>
-                <input type="date" class="field-input" id="devis-date">
-            </div>
-        </div>
-        <div class="meta-right">
-            <div class="field-row">
-                <span class="field-label"><strong>Code Client :</strong></span>
-                <input type="text" class="field-input" id="client-code">
-            </div>
-            <div class="field-row">
-                <span class="field-label"><strong>Raison Sociale :</strong></span>
-                <input type="text" class="field-input" id="client-raison">
-            </div>
-            <div class="field-row">
-                <span class="field-label"><strong>Nom et prénom :</strong></span>
-                <input type="text" class="field-input" id="client-nom">
-            </div>
-            <div class="field-row">
-                <span class="field-label"><strong>Adresse :</strong></span>
-                <input type="text" class="field-input" id="client-adresse">
-            </div>
-            <div class="field-row">
-                <span class="field-label"><strong>RC :</strong></span>
-                <input type="text" class="field-input" id="client-rc">
-            </div>
-            <div class="field-row">
-                <span class="field-label"><strong>NIF :</strong></span>
-                <input type="text" class="field-input" id="client-nif">
-            </div>
-            <div class="field-row">
-                <span class="field-label"><strong>NIS :</strong></span>
-                <input type="text" class="field-input" id="client-nis">
-            </div>
-            <div class="field-row">
-                <span class="field-label"><strong>AI :</strong></span>
-                <input type="text" class="field-input" id="client-ai">
-            </div>
-            <div class="field-row">
-                <span class="field-label"><strong>E-mail :</strong></span>
-                <input type="text" class="field-input" id="client-email">
-            </div>
-            <div class="field-row">
-                <span class="field-label"><strong>Téléphone :</strong></span>
-                <input type="text" class="field-input" id="client-tel">
-            </div>
+    <div class="inv-title-row">
+        <h1 class="inv-title">DEVIS</h1>
+        <div class="inv-meta">
+            <span class="meta-label">N° Devis :</span>
+            <input type="text" class="line-input" id="devis-num" readonly>
+            <span class="meta-label">Date :</span>
+            <input type="date" class="line-input" id="devis-date">
         </div>
     </div>
 
-    <!-- ══ OBJET ══ -->
+    <!-- ══ CLIENT ══ -->
+    <div class="inv-billed" style="font-size: {{ company.billed_text_size }}px">
+        <div class="inv-billed-title">Client</div>
+        <div class="inv-field"><b>Code :</b> <input type="text" id="client-code" class="inv-billed-input"></div>
+        <div class="inv-field"><b>Raison sociale :</b> <input type="text" id="client-raison" class="inv-billed-input name"></div>
+        <div class="inv-field"><b>Nom :</b> <input type="text" id="client-nom" class="inv-billed-input"></div>
+        <div class="inv-field"><b>Adresse :</b> <input type="text" id="client-adresse" class="inv-billed-input"></div>
+        <div class="inv-field"><b>RC :</b> <input type="text" id="client-rc" class="inv-billed-input"></div>
+        <div class="inv-field"><b>NIF :</b> <input type="text" id="client-nif" class="inv-billed-input"></div>
+        <div class="inv-field"><b>NIS :</b> <input type="text" id="client-nis" class="inv-billed-input"></div>
+        <div class="inv-field"><b>AI :</b> <input type="text" id="client-ai" class="inv-billed-input"></div>
+        <div class="inv-field"><b>E-mail :</b> <input type="text" id="client-email" class="inv-billed-input"></div>
+        <div class="inv-field"><b>Téléphone :</b> <input type="text" id="client-tel" class="inv-billed-input"></div>
+    </div>
+
     <div class="objet-row">
         <span class="objet-label"><strong>Objet :</strong></span>
         <input type="text" class="field-input" id="objet" placeholder="Description de l'offre">
@@ -651,21 +629,24 @@ const DEVIS_ID = DEVIS_DATA ? DEVIS_DATA.id : null;
             <div class="sig-space"></div>
         </div>
         <div class="sig-box">
-            <div class="sig-label">Cachet et signature E-BUSINESSLAB :</div>
+            <div class="sig-label">Cachet et signature {{ company.name }} :</div>
             <div class="sig-space"></div>
         </div>
     </div>
 
     <!-- ══ FOOTER ══ -->
     <div class="footer">
-        <div class="footer-title">Notes :</div>
-        <div>
+        <div class="footer-logo">{% if company.logo_footer or company.logo %}<img src="/logo/footer" alt="Logo {{ company.name }}" style="width: {{ company.logo_footer_size }}px">{% else %}{{ company.name[:1] }}{% endif %}</div>
+        <div class="footer-content">
+            <div class="footer-title">Notes :</div>
+            <div>
             Les noms de domaine sont réservés pour une durée d'un (01) an renouvelable.
             L'hébergement web est souscrit pour une durée minimale d'un (01) an.
             Les technologies utilisées incluent : HTML5, CSS3, JavaScript, PHP, MySQL et frameworks modernes selon les besoins du projet.
             Le support technique est assuré durant la période de garantie (03 mois après livraison).
-            E-BUSINESSLAB ne saurait être tenu responsable des pannes liées aux infrastructures tierces (hébergeur, FAI, opérateur télécom).
+            {{ company.name }} ne saurait être tenu responsable des pannes liées aux infrastructures tierces (hébergeur, FAI, opérateur télécom).
             Toute modification demandée après validation du cahier des charges fera l'objet d'un avenant tarifaire.
+            </div>
         </div>
     </div>
 

@@ -1,0 +1,154 @@
+<style>
+    /* ── Facture theme (shared by proforma, devis, bon de commande, bon de versement) ── */
+    .invoice {
+        background: #fff;
+        background-image: none;
+        color: #000;
+        font-family: "Segoe UI", "Inter", "Helvetica Neue", Roboto, Arial, sans-serif;
+        font-size: 11.5px;
+        line-height: 1.45;
+        letter-spacing: .1px;
+    }
+    .invoice input, .invoice textarea { color: #000; font-family: inherit; }
+
+    .inv-header {
+        display: flex; flex-direction: column; gap: 8px;
+        align-items: flex-start;
+        border-bottom: 2px solid #1B3A5F; padding-bottom: 10px;
+    }
+    .inv-logo {
+        display: flex; align-items: center; justify-content: flex-start;
+        overflow: hidden; font-size: 40px; font-weight: 700; line-height: 1;
+    }
+    .inv-logo img {
+        max-height: 110px; max-width: 100%;
+        width: auto; height: auto; object-fit: contain; display: block;
+    }
+    .inv-company { width: 100%; min-width: 0; }
+    .inv-company h1 { margin: 0 0 4px; font-size: 23px; letter-spacing: .3px; color: #1B3A5F; }
+    .inv-company p { margin: 2px 0; font-size: 10.5px; line-height: 1.45; }
+
+    .inv-title-row {
+        display: flex; justify-content: space-between; align-items: baseline;
+        gap: 20px; margin-top: 14px;
+    }
+    .inv-title { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: 2.5px; color: #1B3A5F; }
+    .inv-title--long { font-size: 30px; letter-spacing: 2px; white-space: nowrap; }
+    .inv-meta {
+        display: grid; grid-template-columns: auto auto;
+        column-gap: 8px; row-gap: 4px;
+        justify-content: end; text-align: left;
+    }
+    .inv-meta .meta-label { font-weight: 700; white-space: nowrap; align-self: center; }
+    .inv-meta .line-input {
+        border: none; border-bottom: 1px dotted #000; background: transparent;
+        font: inherit; color: #000; padding: 0 3px; outline: none;
+        width: 150px; align-self: center;
+    }
+
+    .inv-billed { margin-top: 12px; line-height: 1.6; }
+    .inv-billed-title {
+        display: block; font-size: .95em; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .6px;
+        color: #1B3A5F; margin-bottom: 4px;
+    }
+    .inv-field { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; }
+    .inv-field > b { color: #1B3A5F; flex-shrink: 0; }
+    .inv-billed .inv-billed-input {
+        display: inline-block; width: auto; min-width: 4ch;
+        border: none; background: transparent; outline: none;
+        font-family: inherit; font-size: inherit; color: #000;
+        padding: 0; margin: 0;
+    }
+    .inv-billed .inv-billed-input.name { font-size: 1.05em; font-weight: 700; }
+
+    /* Legacy sections */
+    .separator { display: none; }
+    .objet-label, .mode-label, .terms-label, .details-label, .ml-label {
+        color: #1B3A5F; font-weight: 700;
+    }
+    .details-label { margin-top: 10px; }
+    .objet-row, .mode-row { margin-top: 10px; }
+    .objet-row .field-input, .mode-row .field-input, .terms-input {
+        border: none; border-bottom: 1px dotted #000; background: transparent;
+        font: inherit; color: #000; outline: none;
+    }
+
+    .services-table { width: 100%; border-collapse: collapse; margin-top: 14px; table-layout: fixed; }
+    .services-table th {
+        background: #1B3A5F; color: #fff; font-weight: 600; text-align: left;
+        padding: 7px 8px; border: 1px solid #1B3A5F;
+        font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase;
+    }
+    .services-table td {
+        padding: 7px 8px; border-bottom: 1px solid #000;
+        vertical-align: top; word-break: break-word; overflow-wrap: anywhere;
+    }
+    .services-table td input, .services-table td textarea {
+        border: none; background: transparent; font: inherit; color: #000;
+        outline: none; width: 100%; resize: none;
+    }
+    .services-table td input[type="number"] { text-align: right; }
+
+    .totals-section { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .totals-table { width: 285px; margin-left: auto; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    .totals-table td { padding: 4px 0; border: none; }
+    .totals-table .t-label { text-align: left; }
+    .totals-table .t-value { text-align: right; }
+    .totals-table .bold td, .totals-table .bold {
+        border-top: 2px solid #1B3A5F; color: #1B3A5F; font-weight: 700; font-size: 12.5px;
+    }
+    .totals-table input[type="number"] {
+        border: none; border-bottom: 1px dotted #000; background: transparent;
+        font: inherit; color: #000; outline: none; width: 70px; text-align: right;
+    }
+
+    .terms-section { margin-top: 10px; border: none; padding: 0; }
+    .terms-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 10.5px; }
+    .terms-num { width: 60px; }
+
+    .signature-section { display: flex; gap: 20px; margin-top: 18px; }
+    .sig-box { flex: 1; border: none; padding: 0; }
+    .sig-label { font-weight: 700; color: #1B3A5F; font-size: 10.5px; }
+    .sig-space { border-color: #1B3A5F; }
+
+    .summary-section { display: flex; gap: 20px; align-items: flex-start; margin-top: 12px; }
+    .montant-lettre { flex: 1; font-size: 10.5px; }
+    .ml-text { font-style: italic; }
+
+    .footer {
+        display: flex; align-items: center; gap: 12px; text-align: left;
+        border-top: 1px solid #1B3A5F; padding-top: 8px; margin-top: auto;
+        font-size: 9.5px; line-height: 1.55;
+    }
+    .footer-logo { flex-shrink: 0; display: block; height: auto; }
+    .footer-content { flex: 1; min-width: 0; }
+
+    @media screen {
+        .invoice { min-height: 295mm; }
+    }
+
+    @media print {
+        body { padding: 0 !important; }
+        .invoice { min-height: 296mm; }
+        .inv-header, .inv-title, .inv-title-row, .inv-billed-title,
+        .services-table th, .totals-table .bold td, .footer, .signature-section {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+        }
+        .services-table tr, .signature-section, .footer { break-inside: avoid; page-break-inside: avoid; }
+    }
+</style>
+<script>
+function fitBilledInput(el) {
+    var len = (el.value || '').length;
+    el.style.width = Math.min(50, Math.max(4, len + 1)) + 'ch';
+}
+document.addEventListener('DOMContentLoaded', function () {
+    var els = document.querySelectorAll('.inv-billed-input');
+    els.forEach(function (el) {
+        el.addEventListener('input', function () { fitBilledInput(el); });
+    });
+    setTimeout(function () { els.forEach(fitBilledInput); }, 0);
+});
+</script>

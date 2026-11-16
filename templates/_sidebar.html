@@ -1,0 +1,85 @@
+<style>
+    :root { --sb-w: 240px; }
+    .sidebar {
+        position: fixed; top: 0; left: 0; bottom: 0; width: var(--sb-w);
+        background: #14293f; color: #cbd5e1; display: flex; flex-direction: column;
+        z-index: 500; overflow-y: auto; font-family: Arial, sans-serif;
+        transition: transform .25s;
+    }
+    .sb-brand { padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .sb-brand b { display: block; color: #fff; font-size: 15px; line-height: 1.3; }
+    .sb-brand span { font-size: 11px; opacity: .6; }
+    .sb-group { padding: 14px 12px 4px; }
+    .sb-label {
+        font-size: 10px; font-weight: bold; text-transform: uppercase;
+        letter-spacing: .8px; color: #64748b; padding: 0 10px 6px;
+    }
+    .sb-link {
+        display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+        color: #cbd5e1; text-decoration: none; font-size: 13px;
+        border-radius: 8px; margin-bottom: 2px; transition: background .15s;
+    }
+    .sb-link:hover { background: rgba(255,255,255,.08); color: #fff; }
+    .sb-link.active { background: #2563eb; color: #fff; font-weight: bold; }
+    .sb-link .ic { width: 18px; text-align: center; }
+    .sb-foot {
+        margin-top: auto; padding: 14px 16px; border-top: 1px solid rgba(255,255,255,.08);
+        font-size: 12px;
+    }
+    .sb-foot .who { color: #fff; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .sb-foot .tag { background: #2563eb; border-radius: 10px; padding: 1px 8px; font-size: 10px; text-transform: uppercase; }
+    .sb-foot .tag.admin { background: #d97706; }
+    .sb-foot a { color: #fca5a5; text-decoration: none; }
+    .sb-toggle {
+        display: none; position: fixed; top: 10px; left: 10px; z-index: 600;
+        background: #14293f; color: #fff; border: none; border-radius: 8px;
+        width: 40px; height: 40px; font-size: 20px; cursor: pointer;
+    }
+    body.has-sidebar { padding-left: var(--sb-w); }
+    @media (max-width: 900px) {
+        .sidebar { transform: translateX(-100%); }
+        .sidebar.open { transform: none; box-shadow: 0 0 30px rgba(0,0,0,.4); }
+        .sb-toggle { display: block; }
+        body.has-sidebar { padding-left: 0; }
+        body.has-sidebar > header, body.has-sidebar .topbar, body.has-sidebar .page-header { padding-left: 62px; }
+    }
+    @media print { .sidebar, .sb-toggle { display: none !important; } body.has-sidebar { padding-left: 0 !important; } }
+</style>
+<button class="sb-toggle no-print" type="button" onclick="toggleSidebar()">&#9776;</button>
+<aside class="sidebar no-print" id="sidebar">
+    <div class="sb-brand"><b>{{ company.name }}</b><span>Facturation</span></div>
+    <div class="sb-group">
+        <div class="sb-label">Général</div>
+        <a class="sb-link {% if request.url.path == '/' %}active{% endif %}" href="/"><span class="ic">&#127968;</span> Tableau de bord</a>
+        <a class="sb-link {% if request.url.path.startswith('/clients') %}active{% endif %}" href="/clients"><span class="ic">&#128101;</span> Clients</a>
+        <a class="sb-link {% if request.url.path.startswith('/services') %}active{% endif %}" href="/services"><span class="ic">&#128230;</span> Services</a>
+    </div>
+    <div class="sb-group">
+        <div class="sb-label">Nouveau document</div>
+        <a class="sb-link {% if request.url.path.startswith('/invoice') %}active{% endif %}" href="/invoice/new"><span class="ic">&#129534;</span> Facture</a>
+        <a class="sb-link {% if request.url.path.startswith('/proforma') %}active{% endif %}" href="/proforma/new"><span class="ic">&#128196;</span> Proforma</a>
+        <a class="sb-link {% if request.url.path.startswith('/devis') %}active{% endif %}" href="/devis/new"><span class="ic">&#128221;</span> Devis</a>
+        <a class="sb-link {% if request.url.path.startswith('/bc') %}active{% endif %}" href="/bc/new"><span class="ic">&#128230;</span> Bon de commande</a>
+        <a class="sb-link {% if request.url.path.startswith('/bv') %}active{% endif %}" href="/bv/new"><span class="ic">&#128176;</span> Bon de versement</a>
+    </div>
+    {% if current_user and current_user.role == 'admin' %}
+    <div class="sb-group">
+        <div class="sb-label">Administration</div>
+        <a class="sb-link {% if request.url.path.startswith('/admin/company') %}active{% endif %}" href="/admin/company"><span class="ic">&#127970;</span> Entreprise</a>
+        <a class="sb-link {% if request.url.path.startswith('/admin/users') %}active{% endif %}" href="/admin/users"><span class="ic">&#128273;</span> Comptes</a>
+    </div>
+    {% endif %}
+    <div class="sb-foot">
+        <div class="who">&#128100; {{ current_user.username }}
+            <span class="tag {% if current_user.role == 'admin' %}admin{% endif %}">{{ current_user.role }}</span></div>
+        <a href="/logout">Déconnexion</a>
+    </div>
+</aside>
+<script>
+document.body.classList.add('has-sidebar');
+function toggleSidebar() {
+    var open = document.getElementById('sidebar').classList.toggle('open');
+    try { localStorage.setItem('sbOpen', open ? '1' : '0'); } catch (e) {}
+}
+try { if (localStorage.getItem('sbOpen') === '1') document.getElementById('sidebar').classList.add('open'); } catch (e) {}
+</script>

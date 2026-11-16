@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from typing import Optional, List
 import json
@@ -10,6 +10,9 @@ import hashlib
 import hmac
 import secrets
 import time
+import base64
+import io
+from urllib.parse import quote
 
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -102,6 +105,61 @@ def get_db() -> _DB:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
     return _DB(conn)
+
+
+# ── Company information ─────────────────────────────────────────────────────
+
+COMPANY_DEFAULTS = {
+    "name":        "EURL E-BUSINESS LAB",
+    "description": "Entreprise Algérienne spécialisée dans l'accompagnement stratégique, "
+                   "le marketing, le développement et les solutions digitales",
+    "address":     "Rue Colonel Amirouche, Bordj El Kiffan, Bab Ezzouar, Alger, Algérie",
+    "phone":       "0661 490 490",
+    "email":       "info@ebusinesslabdz.com",
+    "website":     "www.ebusinesslabdz.com",
+    "rc":          "25B1054070 - 16/00",
+    "nif":         "002516105407061",
+    "nis":         "0025 1630 02578 41",
+    "ai":          "16300214211",
+    "bank":        "021 00019 1130072030 84\nSOCIETE GENERALE ALGERIE",
+    "logo":        "",
+    "logo_footer": "",
+    "logo_size":   420,
+    "logo_footer_size": 120,
+    "billed_text_size": 10,
+}
+
+COMPANY_FIELDS = list(COMPANY_DEFAULTS.keys())
+
+
+def get_company() -> dict:
+    company = dict(COMPANY_DEFAULTS)
+    try:
+        conn = get_db()
+        row = conn.execute("SELECT * FROM company_settings WHERE id = 1").fetchone()
+        conn.close()
+        if row:
+            for key in COMPANY_FIELDS:
+                value = row.get(key)
+                company[key] = value if value is not None else ""
+    except Exception:
+        pass
+    try:
+        size = int(company.get("logo_size") or 420)
+    except (TypeError, ValueError):
+        size = 420
+    company["logo_size"] = max(120, min(600, size))
+    try:
+        fsize = int(company.get("logo_footer_size") or 120)
+    except (TypeError, ValueError):
+        fsize = 120
+    company["logo_footer_size"] = max(40, min(300, fsize))
+    try:
+        bsize = int(company.get("billed_text_size") or 10)
+    except (TypeError, ValueError):
+        bsize = 10
+    company["billed_text_size"] = max(8, min(16, bsize))
+    return company
 
 
 # ── Database init ────────────────────────────────────────────────────────────
@@ -261,6 +319,36 @@ def init_db():
             "INSERT INTO users (username, password_hash, role) VALUES (?,?,?) ON CONFLICT DO NOTHING",
             ("agent", hash_password("Agent@123"), "agent")
         )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS company_settings (
+                id          INTEGER PRIMARY KEY,
+                name        TEXT,
+                description TEXT,
+                address     TEXT,
+                phone       TEXT,
+                email       TEXT,
+                website     TEXT,
+                rc          TEXT,
+                nif         TEXT,
+                nis         TEXT,
+                ai          TEXT,
+                bank        TEXT,
+                logo        TEXT,
+                logo_footer TEXT,
+                logo_size   INTEGER DEFAULT 420,
+                logo_footer_size INTEGER DEFAULT 120,
+                billed_text_size INTEGER DEFAULT 10,
+                updated_at  TEXT
+            )
+        """)
+        conn.execute(
+            "INSERT INTO company_settings "
+            "(id, name, description, address, phone, email, website, rc, nif, nis, ai, bank) "
+            "VALUES (1,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (id) DO NOTHING",
+            tuple(COMPANY_DEFAULTS[k] for k in (
+                "name", "description", "address", "phone", "email", "website",
+                "rc", "nif", "nis", "ai", "bank"))
+        )
 
     else:
         conn.execute("""
@@ -414,6 +502,36 @@ def init_db():
             "INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?,?,?)",
             ("agent", hash_password("Agent@123"), "agent")
         )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS company_settings (
+                id          INTEGER PRIMARY KEY,
+                name        TEXT,
+                description TEXT,
+                address     TEXT,
+                phone       TEXT,
+                email       TEXT,
+                website     TEXT,
+                rc          TEXT,
+                nif         TEXT,
+                nis         TEXT,
+                ai          TEXT,
+                bank        TEXT,
+                logo        TEXT,
+                logo_footer TEXT,
+                logo_size   INTEGER DEFAULT 420,
+                logo_footer_size INTEGER DEFAULT 120,
+                billed_text_size INTEGER DEFAULT 10,
+                updated_at  TEXT
+            )
+        """)
+        conn.execute(
+            "INSERT OR IGNORE INTO company_settings "
+            "(id, name, description, address, phone, email, website, rc, nif, nis, ai, bank) "
+            "VALUES (1,?,?,?,?,?,?,?,?,?,?,?)",
+            tuple(COMPANY_DEFAULTS[k] for k in (
+                "name", "description", "address", "phone", "email", "website",
+                "rc", "nif", "nis", "ai", "bank"))
+        )
 
     conn.commit()
     conn.close()
@@ -440,7 +558,44 @@ def migrate_db():
         ("proformas", "created_by TEXT"),
         ("devis",     "created_by TEXT"),
         ("devis",     "apply_tva INTEGER DEFAULT 1"),
+        ("company_settings", "logo_footer TEXT"),
+        ("company_settings", "logo_size INTEGER DEFAULT 420"),
+        ("company_settings", "logo_footer_size INTEGER DEFAULT 120"),
+        ("company_settings", "billed_text_size INTEGER DEFAULT 10"),
     ]
+    pk = "SERIAL PRIMARY KEY" if USE_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    try:
+        conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS services (
+                id      {pk},
+                name    TEXT NOT NULL,
+                details TEXT DEFAULT '',
+                price   REAL DEFAULT 0
+            )
+        """)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    try:
+        conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS clients (
+                id      {pk},
+                name    TEXT NOT NULL,
+                contact TEXT DEFAULT '',
+                code    TEXT DEFAULT '',
+                address TEXT DEFAULT '',
+                rc      TEXT DEFAULT '',
+                nif     TEXT DEFAULT '',
+                nis     TEXT DEFAULT '',
+                ai      TEXT DEFAULT '',
+                art     TEXT DEFAULT '',
+                email   TEXT DEFAULT '',
+                tel     TEXT DEFAULT ''
+            )
+        """)
+        conn.commit()
+    except Exception:
+        conn.rollback()
     for table, col_def in migrations:
         try:
             if USE_POSTGRES:
@@ -520,6 +675,15 @@ def get_next_invoice_number() -> str:
 
 def session_user(request: Request):
     return request.session.get("user")
+
+
+def render(request: Request, template_name: str, context: Optional[dict] = None, **extra):
+    """Render a template with the current user and company info available."""
+    ctx = dict(context or {})
+    ctx.update(extra)
+    ctx.setdefault("current_user", session_user(request))
+    ctx["company"] = get_company()
+    return templates.TemplateResponse(request, template_name, ctx)
 
 
 # ── Pydantic models ────────────────────────────────────────────────────────
@@ -666,7 +830,7 @@ class BonVersementCreate(BaseModel):
 async def login_page(request: Request):
     if session_user(request):
         return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse(request, "login.html", {"error": None})
+    return render(request, "login.html", {"error": None})
 
 
 @app.post("/login", response_class=HTMLResponse)
@@ -682,7 +846,7 @@ async def login_submit(request: Request):
     conn.close()
 
     if not user or not verify_password(password, user["password_hash"]):
-        return templates.TemplateResponse(request, "login.html", {
+        return render(request, "login.html", {
             "error": "Nom d'utilisateur ou mot de passe incorrect."
         })
 
@@ -700,6 +864,65 @@ async def logout(request: Request):
     return RedirectResponse(url="/login", status_code=302)
 
 
+_trimmed_logos = {}
+
+
+def _trim_logo(data: bytes, mime: str):
+    try:
+        from PIL import Image
+
+        img = Image.open(io.BytesIO(data))
+        if img.mode == "P" and "transparency" in img.info:
+            img = img.convert("RGBA")
+        if img.mode not in ("RGBA", "LA"):
+            return data, mime
+        img = img.convert("RGBA")
+        bbox = img.getchannel("A").getbbox()
+        if not bbox:
+            return data, mime
+        pad = 4
+        bbox = (
+            max(0, bbox[0] - pad), max(0, bbox[1] - pad),
+            min(img.width, bbox[2] + pad), min(img.height, bbox[3] + pad),
+        )
+        out = io.BytesIO()
+        img.crop(bbox).save(out, "PNG")
+        return out.getvalue(), "image/png"
+    except Exception:
+        return data, mime
+
+
+def _logo_response(logo: str, request: Request = None):
+    if not logo.startswith("data:") or "," not in logo:
+        return Response(status_code=404)
+    header, b64 = logo.split(",", 1)
+    mime = header[5:].split(";")[0] or "image/png"
+    try:
+        data = base64.b64decode(b64)
+    except Exception:
+        return Response(status_code=404)
+    key = hashlib.sha1(data).hexdigest()
+    if key not in _trimmed_logos:
+        _trimmed_logos[key] = _trim_logo(data, mime)
+    data, mime = _trimmed_logos[key]
+    # Revalidate on every load (ETag) so a replaced logo shows up immediately.
+    headers = {"Cache-Control": "no-cache", "ETag": f'"{key}"'}
+    if request is not None and request.headers.get("if-none-match") == headers["ETag"]:
+        return Response(status_code=304, headers=headers)
+    return Response(content=data, media_type=mime, headers=headers)
+
+
+@app.get("/logo")
+async def company_logo(request: Request):
+    return _logo_response(get_company().get("logo") or "", request)
+
+
+@app.get("/logo/footer")
+async def company_footer_logo(request: Request):
+    company = get_company()
+    return _logo_response(company.get("logo_footer") or company.get("logo") or "", request)
+
+
 # ── Admin: user management ─────────────────────────────────────────────────
 
 @app.get("/admin/users", response_class=HTMLResponse)
@@ -714,7 +937,7 @@ async def admin_users(request: Request):
     users = conn.execute("SELECT id, username, role FROM users ORDER BY id").fetchall()
     conn.close()
 
-    return templates.TemplateResponse(request, "admin_users.html", {
+    return render(request, "admin_users.html", {
         "users":        users,
         "current_user": user,
         "success":      request.query_params.get("success"),
@@ -824,6 +1047,122 @@ async def change_password(request: Request, user_id: int):
     return RedirectResponse(url="/admin/users?success=1", status_code=302)
 
 
+# ── Admin: company information ─────────────────────────────────────────────
+
+LOGO_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+LOGO_MAX_BYTES = 2 * 1024 * 1024
+
+
+@app.get("/admin/company", response_class=HTMLResponse)
+async def admin_company(request: Request):
+    user = session_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    if user["role"] != "admin":
+        return RedirectResponse(url="/", status_code=302)
+    return render(request, "admin_company.html", {
+        "success": request.query_params.get("success"),
+        "error":   request.query_params.get("error"),
+    })
+
+
+async def _read_logo_upload(form, field: str):
+    upload = form.get(field)
+    if upload is None or not hasattr(upload, "read") or not getattr(upload, "filename", ""):
+        return None, None
+    data = await upload.read()
+    content_type = getattr(upload, "content_type", "") or ""
+    if content_type not in LOGO_TYPES:
+        return None, "Format de logo non supporté (PNG, JPG, WEBP, GIF)"
+    if not data:
+        return None, "Le fichier logo est vide"
+    if len(data) > LOGO_MAX_BYTES:
+        return None, "Le logo ne doit pas dépasser 2 Mo"
+    return f"data:{content_type};base64," + base64.b64encode(data).decode(), None
+
+
+@app.post("/admin/company", response_class=HTMLResponse)
+async def save_company(request: Request):
+    user = session_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    if user["role"] != "admin":
+        return RedirectResponse(url="/", status_code=302)
+
+    form = await request.form()
+    values = {
+        key: str(form.get(key, "")).strip()
+        for key in COMPANY_FIELDS
+        if key not in ("logo", "logo_footer")
+    }
+
+    current = get_company()
+    logo_upload, logo_error = await _read_logo_upload(form, "logo")
+    if logo_error:
+        return RedirectResponse(
+            url=f"/admin/company?error={quote(logo_error)}",
+            status_code=302
+        )
+    logo_value = current.get("logo") or ""
+    if logo_upload:
+        logo_value = logo_upload
+    elif str(form.get("remove_logo", "")) == "1":
+        logo_value = ""
+
+    footer_upload, footer_error = await _read_logo_upload(form, "logo_footer")
+    if footer_error:
+        return RedirectResponse(
+            url=f"/admin/company?error={quote('Logo pied de page : ' + footer_error)}",
+            status_code=302
+        )
+    footer_value = current.get("logo_footer") or ""
+    if footer_upload:
+        footer_value = footer_upload
+    elif str(form.get("remove_logo_footer", "")) == "1":
+        footer_value = ""
+
+    values["logo"] = logo_value
+    values["logo_footer"] = footer_value
+
+    try:
+        logo_size = int(values.get("logo_size") or 420)
+    except ValueError:
+        logo_size = 420
+    values["logo_size"] = str(max(120, min(600, logo_size)))
+
+    try:
+        footer_size = int(values.get("logo_footer_size") or 120)
+    except ValueError:
+        footer_size = 120
+    values["logo_footer_size"] = str(max(40, min(300, footer_size)))
+
+    try:
+        billed_size = int(values.get("billed_text_size") or 10)
+    except ValueError:
+        billed_size = 10
+    values["billed_text_size"] = str(max(8, min(16, billed_size)))
+
+    conn = get_db()
+    conn.execute("""
+        UPDATE company_settings SET
+            name=?, description=?, address=?, phone=?, email=?, website=?,
+            rc=?, nif=?, nis=?, ai=?, bank=?, logo=?, logo_footer=?,
+            logo_size=?, logo_footer_size=?, billed_text_size=?, updated_at=?
+        WHERE id=1
+    """, (
+        values["name"], values["description"], values["address"],
+        values["phone"], values["email"], values["website"],
+        values["rc"], values["nif"], values["nis"], values["ai"],
+        values["bank"], values["logo"], values["logo_footer"],
+        int(values["logo_size"]),
+        int(values["logo_footer_size"]), int(values["billed_text_size"]),
+        datetime.now().isoformat(timespec="seconds")
+    ))
+    conn.commit()
+    conn.close()
+    return RedirectResponse(url="/admin/company?success=1", status_code=302)
+
+
 # ── App routes ─────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
@@ -860,14 +1199,186 @@ async def dashboard(request: Request):
     ).fetchall()
     conn.close()
 
-    return templates.TemplateResponse(request, "index.html", {
+    return render(request, "index.html", {
         "invoices":        rows,
         "proformas":       proforma_rows,
         "devis_list":      devis_rows,
         "bons_commande":   bc_rows,
         "bons_versement":  bv_rows,
-        "current_user":    user
+        "current_user":    user,
+        "active":          "dashboard",
     })
+
+
+
+# ── Clients ────────────────────────────────────────────────────────────────
+
+CLIENT_FIELDS = ["name", "contact", "code", "address", "rc", "nif", "nis", "ai", "art", "email", "tel"]
+
+
+class ClientItem(BaseModel):
+    name: str
+    contact: str = ""
+    code: str = ""
+    address: str = ""
+    rc: str = ""
+    nif: str = ""
+    nis: str = ""
+    ai: str = ""
+    art: str = ""
+    email: str = ""
+    tel: str = ""
+
+
+def _list_clients() -> list:
+    conn = get_db()
+    rows = conn.execute("SELECT id, " + ", ".join(CLIENT_FIELDS) + " FROM clients ORDER BY name").fetchall()
+    conn.close()
+    return rows
+
+
+def _auto_client(conn, **f):
+    """Add the client to the clients list if no client with that name exists yet."""
+    name = (f.get("name") or "").strip()
+    if not name:
+        return
+    try:
+        exists = conn.execute(
+            "SELECT id FROM clients WHERE LOWER(name) = LOWER(?)", (name,)
+        ).fetchone()
+        if exists:
+            return
+        vals = [name] + [(f.get(k) or "").strip() for k in CLIENT_FIELDS[1:]]
+        conn.execute(
+            "INSERT INTO clients (" + ", ".join(CLIENT_FIELDS) + ") VALUES ("
+            + ",".join("?" * len(CLIENT_FIELDS)) + ")", tuple(vals))
+    except Exception:
+        pass
+
+
+@app.get("/clients", response_class=HTMLResponse)
+async def clients_page(request: Request):
+    if not session_user(request):
+        return RedirectResponse(url="/login", status_code=302)
+    return render(request, "clients.html", {"clients": _list_clients()})
+
+
+@app.get("/api/clients")
+async def api_clients(request: Request):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    return _list_clients()
+
+
+@app.post("/api/clients")
+async def api_client_create(request: Request, item: ClientItem):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    if not item.name.strip():
+        raise HTTPException(status_code=400, detail="Nom du client requis")
+    conn = get_db()
+    cur = conn.insert(
+        "INSERT INTO clients (" + ", ".join(CLIENT_FIELDS) + ") VALUES ("
+        + ",".join("?" * len(CLIENT_FIELDS)) + ")",
+        tuple(getattr(item, k).strip() for k in CLIENT_FIELDS))
+    new_id = cur.lastrowid
+    conn.commit(); conn.close()
+    return {"id": new_id}
+
+
+@app.put("/api/clients/{client_id}")
+async def api_client_update(request: Request, client_id: int, item: ClientItem):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    if not item.name.strip():
+        raise HTTPException(status_code=400, detail="Nom du client requis")
+    conn = get_db()
+    conn.execute(
+        "UPDATE clients SET " + ", ".join(f"{k}=?" for k in CLIENT_FIELDS) + " WHERE id=?",
+        tuple(getattr(item, k).strip() for k in CLIENT_FIELDS) + (client_id,))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
+@app.delete("/api/clients/{client_id}")
+async def api_client_delete(request: Request, client_id: int):
+    user = session_user(request)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    conn = get_db()
+    conn.execute("DELETE FROM clients WHERE id=?", (client_id,))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
+# ── Services catalogue ─────────────────────────────────────────────────────
+
+class ServiceItem(BaseModel):
+    name: str
+    details: str = ""
+    price: float = 0
+
+
+def _list_services() -> list:
+    conn = get_db()
+    rows = conn.execute("SELECT id, name, details, price FROM services ORDER BY name").fetchall()
+    conn.close()
+    return rows
+
+
+@app.get("/services", response_class=HTMLResponse)
+async def services_page(request: Request):
+    user = session_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    return render(request, "services.html", {"services": _list_services(), "active": "services"})
+
+
+@app.get("/api/services")
+async def api_services(request: Request):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    return _list_services()
+
+
+@app.post("/api/services")
+async def api_service_create(request: Request, item: ServiceItem):
+    user = session_user(request)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    if not item.name.strip():
+        raise HTTPException(status_code=400, detail="Nom du service requis")
+    conn = get_db()
+    cur = conn.insert("INSERT INTO services (name, details, price) VALUES (?,?,?)",
+                      (item.name.strip(), item.details.strip(), item.price))
+    new_id = cur.lastrowid
+    conn.commit(); conn.close()
+    return {"id": new_id}
+
+
+@app.put("/api/services/{service_id}")
+async def api_service_update(request: Request, service_id: int, item: ServiceItem):
+    user = session_user(request)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    if not item.name.strip():
+        raise HTTPException(status_code=400, detail="Nom du service requis")
+    conn = get_db()
+    conn.execute("UPDATE services SET name=?, details=?, price=? WHERE id=?",
+                 (item.name.strip(), item.details.strip(), item.price, service_id))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
+@app.delete("/api/services/{service_id}")
+async def api_service_delete(request: Request, service_id: int):
+    user = session_user(request)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    conn = get_db()
+    conn.execute("DELETE FROM services WHERE id=?", (service_id,))
+    conn.commit(); conn.close()
+    return {"ok": True}
 
 
 @app.get("/invoice/new", response_class=HTMLResponse)
@@ -875,12 +1386,11 @@ async def new_invoice(request: Request):
     user = session_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-    return templates.TemplateResponse(request, "invoice.html", {
+    return render(request, "invoice_new.html", {
         "facture_num":  get_next_invoice_number(),
-        "invoice":      None,
-        "readonly":     False,
-        "creator":      None,
-        "current_user": user
+        "facture_date": datetime.now().strftime("%Y-%m-%d"),
+        "services":     _list_services(),
+        "active":       "invoice",
     })
 
 
@@ -896,7 +1406,7 @@ async def view_invoice(request: Request, invoice_id: int):
         raise HTTPException(status_code=404, detail="Facture introuvable")
     inv["services"] = json.loads(inv.get("services") or "[]")
     auto_edit = request.query_params.get("edit") == "1" and user["role"] == "admin"
-    return templates.TemplateResponse(request, "invoice.html", {
+    return render(request, "invoice.html", {
         "facture_num":  inv["facture_num"],
         "invoice":      inv,
         "readonly":     True,
@@ -911,7 +1421,7 @@ async def new_proforma(request: Request):
     user = session_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-    return templates.TemplateResponse(request, "proforma.html", {
+    return render(request, "proforma.html", {
         "proforma_num": get_next_proforma_number(),
         "proforma":     None,
         "readonly":     False,
@@ -932,7 +1442,7 @@ async def view_proforma(request: Request, proforma_id: int):
         raise HTTPException(status_code=404, detail="Proforma introuvable")
     pro["lignes"] = json.loads(pro.get("lignes") or "[]")
     auto_edit = request.query_params.get("edit") == "1" and user["role"] == "admin"
-    return templates.TemplateResponse(request, "proforma.html", {
+    return render(request, "proforma.html", {
         "proforma_num": pro["proforma_num"],
         "proforma":     pro,
         "readonly":     True,
@@ -971,6 +1481,7 @@ async def create_proforma(request: Request, data: ProformaCreate):
             user["username"]
         ))
         new_id = conn.lastrowid
+        _auto_client(conn, name=data.client_raison or data.client_nom, contact=data.client_nom if data.client_raison else "", code=data.client_code, address=data.client_adresse, rc=data.client_rc, nif=data.client_nif, nis=data.client_nis, ai=data.client_ai, email=data.client_email, tel=data.client_tel)
         conn.commit()
         conn.close()
         return {"success": True, "id": new_id, "proforma_num": data.proforma_num}
@@ -1021,7 +1532,7 @@ async def new_devis(request: Request):
     user = session_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-    return templates.TemplateResponse(request, "devis.html", {
+    return render(request, "devis.html", {
         "devis_num":    get_next_devis_number(),
         "devis":        None,
         "readonly":     False,
@@ -1042,7 +1553,7 @@ async def view_devis(request: Request, devis_id: int):
         raise HTTPException(status_code=404, detail="Devis introuvable")
     dev["lignes"] = json.loads(dev.get("lignes") or "[]")
     auto_edit = request.query_params.get("edit") == "1" and user["role"] == "admin"
-    return templates.TemplateResponse(request, "devis.html", {
+    return render(request, "devis.html", {
         "devis_num":    dev["devis_num"],
         "devis":        dev,
         "readonly":     True,
@@ -1082,6 +1593,7 @@ async def create_devis(request: Request, data: DevisCreate):
             user["username"]
         ))
         new_id = conn.lastrowid
+        _auto_client(conn, name=data.client_raison or data.client_nom, contact=data.client_nom if data.client_raison else "", code=data.client_code, address=data.client_adresse, rc=data.client_rc, nif=data.client_nif, nis=data.client_nis, ai=data.client_ai, email=data.client_email, tel=data.client_tel)
         conn.commit()
         conn.close()
         return {"success": True, "id": new_id, "devis_num": data.devis_num}
@@ -1133,7 +1645,7 @@ async def new_bc(request: Request):
     user = session_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-    return templates.TemplateResponse(request, "bon_commande.html", {
+    return render(request, "bon_commande.html", {
         "bc_num":       get_next_bc_number(),
         "bc":           None,
         "readonly":     False,
@@ -1153,7 +1665,7 @@ async def view_bc(request: Request, bc_id: int):
     if not bc:
         raise HTTPException(status_code=404, detail="Bon de commande introuvable")
     bc["lignes"] = json.loads(bc.get("lignes") or "[]")
-    return templates.TemplateResponse(request, "bon_commande.html", {
+    return render(request, "bon_commande.html", {
         "bc_num":       bc["bc_num"],
         "bc":           bc,
         "readonly":     True,
@@ -1187,6 +1699,7 @@ async def create_bc(request: Request, data: BonCommandeCreate):
             user["username"]
         ))
         new_id = conn.lastrowid
+        _auto_client(conn, name=data.client_nom, address=data.client_adresse, rc=data.client_rc, nif=data.client_nif, nis=data.client_nis, art=data.client_art, tel=data.client_tel)
         conn.commit()
         conn.close()
         return {"success": True, "id": new_id, "bc_num": data.bc_num}
@@ -1201,7 +1714,7 @@ async def new_bv(request: Request):
     user = session_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-    return templates.TemplateResponse(request, "bon_versement.html", {
+    return render(request, "bon_versement.html", {
         "bv_num":       get_next_bv_number(),
         "bv":           None,
         "readonly":     False,
@@ -1221,7 +1734,7 @@ async def view_bv(request: Request, bv_id: int):
     if not bv:
         raise HTTPException(status_code=404, detail="Bon de versement introuvable")
     bv["lignes"] = json.loads(bv.get("lignes") or "[]")
-    return templates.TemplateResponse(request, "bon_versement.html", {
+    return render(request, "bon_versement.html", {
         "bv_num":       bv["bv_num"],
         "bv":           bv,
         "readonly":     True,
@@ -1255,6 +1768,7 @@ async def create_bv(request: Request, data: BonVersementCreate):
             user["username"]
         ))
         new_id = conn.lastrowid
+        _auto_client(conn, name=data.client_nom, address=data.client_adresse, rc=data.client_rc, nif=data.client_nif, nis=data.client_nis, art=data.client_art, tel=data.client_tel)
         conn.commit()
         conn.close()
         return {"success": True, "id": new_id, "bv_num": data.bv_num}
@@ -1288,6 +1802,7 @@ async def create_invoice(request: Request, data: InvoiceCreate):
             user["username"]
         ))
         new_id = conn.lastrowid
+        _auto_client(conn, name=data.client_doit, address=data.client_adresse, ai=data.client_ai, rc=data.client_rc, nif=data.client_nif, nis=data.client_nis)
         conn.commit()
         conn.close()
         return {"success": True, "id": new_id, "facture_num": data.facture_num}

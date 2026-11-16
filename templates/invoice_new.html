@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nouvelle facture - {{ company.name }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            background: #eef2f7;
+            color: #1f2937;
+            min-height: 100vh;
+        }
+
+        /* ── Top bar ── */
+        .topbar {
+            background: #1e3a5f;
+            color: white;
+            padding: 14px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.3);
+        }
+        .topbar .brand { font-size: 17px; font-weight: bold; letter-spacing: .3px; }
+        .topbar .subtitle { font-size: 12px; opacity: .7; margin-top: 2px; }
+        .topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .user-badge {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,.12); border-radius: 20px;
+            padding: 6px 14px; font-size: 12px;
+        }
+        .role-tag {
+            background: #2563eb; color: white; border-radius: 10px;
+            padding: 1px 8px; font-size: 10px; font-weight: bold;
+            text-transform: uppercase; letter-spacing: .5px;
+        }
+        .role-tag.admin { background: #d97706; }
+        .btn-top {
+            background: rgba(255,255,255,.15); color: white;
+            border: 1px solid rgba(255,255,255,.3); border-radius: 6px;
+            padding: 7px 14px; font-size: 12px; text-decoration: none;
+            transition: background .2s;
+        }
+        .btn-top:hover { background: rgba(255,255,255,.25); }
+
+        .container {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 24px 24px 70px;
+        }
+
+        /* ── Company banner (well organized) ── */
+        .company-banner {
+            background: white;
+            border-radius: 12px;
+            border-top: 4px solid #1e3a5f;
+            box-shadow: 0 2px 10px rgba(15,23,42,.08);
+            padding: 22px 26px;
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .company-brand { display: flex; align-items: center; gap: 18px; min-width: 280px; }
+        .company-brand img {
+            max-height: 74px; max-width: 200px; object-fit: contain;
+            flex-shrink: 0;
+        }
+        .company-brand h1 { font-size: 21px; color: #1e3a5f; margin-bottom: 4px; }
+        .company-brand p { font-size: 12px; color: #6b7280; line-height: 1.5; max-width: 360px; }
+        .company-facts {
+            flex: 1;
+            min-width: 320px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(160px, 1fr));
+            gap: 10px 26px;
+            border-left: 1px solid #e5e7eb;
+            padding-left: 26px;
+        }
+        .company-facts .full { grid-column: 1 / -1; }
+        .fact .k {
+            display: block; font-size: 10px; font-weight: bold;
+            text-transform: uppercase; letter-spacing: .5px;
+            color: #9ca3af; margin-bottom: 1px;
+        }
+        .fact .v { color: #374151; font-size: 12px; white-space: pre-line; }
+
+        /* ── Cards / form ── */
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(15,23,42,.08);
+            overflow: hidden;
+            margin-bottom: 22px;
+        }
+        .card-head {
+            padding: 18px 24px;
+            border-bottom: 1px solid #eef2f7;
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .card-title { font-size: 17px; font-weight: bold; color: #1e3a5f; display: flex; align-items: center; gap: 10px; }
+        .num-chip {
+            background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+            border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: bold;
+        }
+        .card-sub { font-size: 12px; color: #6b7280; }
+        .card-body { padding: 22px 24px; }
+
+        .form-section + .form-section {
+            margin-top: 26px;
+            padding-top: 22px;
+            border-top: 1px dashed #e2e8f0;
+        }
+        .section-title {
+            font-size: 12px; font-weight: bold; color: #1e3a5f;
+            text-transform: uppercase; letter-spacing: .6px;
+            margin-bottom: 14px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px 18px;
+        }
+        .span2 { grid-column: 1 / -1; }
+        .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+        .field > span {
+            font-size: 10.5px; font-weight: bold; color: #6b7280;
+            text-transform: uppercase; letter-spacing: .4px;
+        }
+        .field input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 7px;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+            background: #fff;
+        }
+        .field input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+        }
+        .field input[readonly] { background: #f1f5f9; color: #64748b; }
+
+        /* ── Lines ── */
+        .lines-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .lines-table th {
+            text-align: left;
+            font-size: 10.5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            color: #6b7280;
+            padding: 0 10px;
+        }
+        .lines-table th.w-price { width: 170px; text-align: right; }
+        .lines-table th.w-del { width: 44px; }
+        .lines-table td {
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 7px 8px;
+            vertical-align: top;
+        }
+        .lines-table td:first-child { border-left: 1px solid #e2e8f0; border-radius: 8px 0 0 8px; }
+        .lines-table td:last-child { border-right: 1px solid #e2e8f0; border-radius: 0 8px 8px 0; }
+        .lines-table textarea {
+            width: 100%;
+            min-height: 42px;
+            border: 1px solid transparent;
+            background: transparent;
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-family: inherit;
+            font-size: 13px;
+            resize: vertical;
+            outline: none;
+        }
+        .lines-table textarea:focus,
+        .lines-table input:focus {
+            background: white;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37,99,235,.08);
+        }
+        .lines-table input {
+            width: 100%;
+            border: 1px solid transparent;
+            background: transparent;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-family: inherit;
+            font-size: 13px;
+            text-align: right;
+            outline: none;
+        }
+        .btn-row-del {
+            width: 34px; height: 34px;
+            border: none; border-radius: 6px;
+            background: #fef2f2; color: #dc2626;
+            font-size: 15px; cursor: pointer;
+            transition: background .2s;
+        }
+        .btn-row-del:hover { background: #fee2e2; }
+
+        .btn-add-line {
+            margin-top: 6px;
+            width: 100%;
+            border: 2px dashed #bfdbfe;
+            background: #f8fbff;
+            color: #1d4ed8;
+            border-radius: 8px;
+            padding: 11px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background .2s;
+        }
+        .btn-add-line:hover { background: #eff6ff; }
+
+        .picker { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 4px 0 10px; padding: 12px; background: #f0f7ff; border: 1px solid #bfdbfe; border-radius: 10px; }
+        .picker select { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #93c5fd; border-radius: 7px; font: inherit; background: #fff; }
+        .btn-pick { background: #2563eb; color: #fff; border: none; border-radius: 7px; padding: 10px 16px; font-weight: bold; cursor: pointer; }
+        .btn-pick:hover { background: #1d4ed8; }
+        .pick-link { font-size: 12px; color: #1d4ed8; }
+
+        /* ── Totals ── */
+        .totals-wrap {
+            display: flex;
+            gap: 22px;
+            align-items: flex-start;
+            margin-top: 22px;
+            flex-wrap: wrap;
+        }
+        .words-box {
+            flex: 1;
+            min-width: 260px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+        .words-label {
+            font-size: 10.5px; font-weight: bold; color: #6b7280;
+            text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px;
+        }
+        #montant-lettre { font-size: 13px; font-style: italic; color: #374151; line-height: 1.5; }
+
+        .totals-card {
+            width: 340px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .totals-card table { width: 100%; border-collapse: collapse; }
+        .totals-card td { padding: 9px 14px; font-size: 13px; }
+        .totals-card tr + tr td { border-top: 1px solid #eef2f7; }
+        .totals-card .val { text-align: right; white-space: nowrap; }
+        .totals-card input {
+            width: 110px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-family: inherit;
+            font-size: 13px;
+            text-align: right;
+            outline: none;
+        }
+        .totals-card input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+        .totals-card tr.net td {
+            background: #f0fdf4;
+            font-weight: bold;
+            color: #15803d;
+            font-size: 14px;
+            border-top: 2px solid #86efac;
+        }
+
+        /* ── Generate bar ── */
+        .generate-bar {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(15,23,42,.08);
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            margin: 24px 0;
+        }
+        .generate-bar .hint { flex: 1; min-width: 240px; font-size: 12.5px; color: #6b7280; }
+        .btn-generate {
+            background: #16a34a;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 14px 32px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(22,163,74,.3);
+            transition: background .2s;
+        }
+        .btn-generate:hover { background: #15803d; }
+        .btn-generate:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; }
+
+        /* ── Facture : document noir & blanc, style formulaire ── */
+        .invoice {
+            background: #fff;
+            width: 210mm;
+            max-width: 100%;
+            min-height: 297mm;
+            margin: 0 auto;
+            padding: 12mm 14mm;
+            box-shadow: 0 6px 24px rgba(15,23,42,.18);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background-image: none;
+            color: #000;
+            font-family: "Segoe UI", "Inter", "Helvetica Neue", Roboto, Arial, sans-serif;
+            font-size: 11.5px;
+            line-height: 1.45;
+            letter-spacing: .1px;
+        }
+
+        .invoice input, .invoice textarea { color: #000; }
+
+        .inv-header {
+            display: flex; flex-direction: column; gap: 8px;
+            align-items: flex-start;
+            border-bottom: 2px solid #1B3A5F; padding-bottom: 10px;
+        }
+        .inv-logo {
+            display: flex; align-items: center; justify-content: flex-start;
+            overflow: hidden; font-size: 40px; font-weight: bold; line-height: 1;
+        }
+        .inv-logo img {
+            max-height: 110px; max-width: 100%;
+            width: auto; height: auto; object-fit: contain; display: block;
+        }
+        .inv-company { width: 100%; min-width: 0; }
+        .inv-company h1 { margin: 0 0 4px; font-size: 23px; letter-spacing: .3px; }
+        .inv-company p { margin: 2px 0; font-size: 10.5px; line-height: 1.45; }
+        .inv-main { flex: 1; }
+
+        .inv-title-row {
+            display: flex; justify-content: space-between; align-items: baseline;
+            gap: 20px; margin-top: 14px;
+        }
+        .inv-title { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: 2.5px; color: #1B3A5F; }
+        .inv-meta {
+            display: grid; grid-template-columns: auto auto;
+            column-gap: 8px; row-gap: 4px;
+            justify-content: end; text-align: left;
+        }
+        .inv-meta .meta-label { font-weight: 700; white-space: nowrap; align-self: center; }
+        .inv-meta .meta-value { min-height: 15px; align-self: center; }
+        .inv-meta .line-input {
+            border: none; border-bottom: 1px dotted #000; background: transparent;
+            font: inherit; color: #000; padding: 0 3px; outline: none;
+            width: 150px; align-self: center;
+        }
+
+        .inv-label { font-weight: bold; margin: 10px 0 3px; }
+        .inv-box {
+            border: 1.2px solid #000; padding: 4px 7px; min-height: 23px;
+            display: flex; align-items: center; flex: 1; min-width: 0;
+        }
+        .inv-box .box-input {
+            border: none; background: transparent; outline: none;
+            font: inherit; color: #000; width: 100%; padding: 0;
+        }
+        .inv-box .box-value { min-height: 15px; }
+        .inv-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin-top: 10px; }
+        .inv-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .inv-row > b { white-space: nowrap; }
+        .inv-rowline { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
+        .inv-rowline .inv-row { flex: 1; min-width: 170px; }
+
+        .inv-billed { margin-top: 12px; line-height: 1.6; }
+        .inv-billed-title {
+            display: block; font-size: .95em; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .6px;
+            color: #1B3A5F; margin-bottom: 4px;
+        }
+        .inv-field { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; }
+        .inv-field > b { color: #1B3A5F; flex-shrink: 0; }
+        .inv-billed-name { display: block; font-size: 1.05em; font-weight: 700; }
+        .inv-billed-line { display: block; font-size: 1em; }
+        .inv-billed .inv-billed-input {
+            display: block; width: auto; min-width: 4ch;
+            border: none; background: transparent; outline: none;
+            font-family: inherit; font-size: inherit; color: #000;
+            padding: 0; margin: 0;
+        }
+        .inv-billed .inv-billed-input.name { font-size: 1.05em; font-weight: 700; }
+        .inv-billed .inv-billed-input.line { font-size: 1em; }
+        .inv-billed .inv-field { display: flex; margin-right: 0; }
+        .inv-billed-ids {
+            display: flex; flex-wrap: nowrap; align-items: center;
+            gap: 10px; white-space: nowrap; font-size: 1em;
+        }
+        .inv-id { display: inline-flex; align-items: center; gap: 4px; margin-right: 0; flex-shrink: 0; }
+        .inv-id:last-child { margin-right: 0; }
+        .inv-id b { color: #1B3A5F; }
+        .inv-billed-ids .inv-billed-input {
+            display: inline-block; width: auto; min-width: 4ch;
+            font-size: inherit; font-weight: 400;
+        }
+        .inv-id .id-value { min-height: 0; }
+
+        .inv-extra { display: flex; margin-top: 8px; border: 1.2px solid #000; }
+        .inv-extra-cell {
+            flex: 1; min-width: 0; padding: 5px 8px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .inv-extra-cell + .inv-extra-cell { border-left: 1px solid #000; }
+        .inv-extra-cell b { flex-shrink: 0; }
+        .inv-extra-cell .box-input {
+            border: none; background: transparent; outline: none;
+            font: inherit; color: #000; width: 100%; min-width: 0; padding: 0;
+        }
+        .inv-extra-cell .box-value { min-width: 0; }
+
+        .inv-table { width: 100%; border-collapse: collapse; margin-top: 14px; table-layout: fixed; }
+        .inv-table th {
+            background: #1B3A5F; color: #fff; font-weight: 600; text-align: left;
+            padding: 7px 8px; border: 1px solid #1B3A5F;
+            font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase;
+        }
+        .inv-table th.num, .inv-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .inv-table td {
+            padding: 7px 8px; border-bottom: 1px solid #000;
+            vertical-align: top; word-break: break-word; overflow-wrap: anywhere;
+        }
+        .inv-table .c-ref { width: 8%; }
+        .inv-table .c-amount { width: 18%; }
+        .inv-table tbody { counter-reset: invrow; }
+        .inv-table tbody tr { counter-increment: invrow; }
+        .inv-table td.c-ref::before { content: counter(invrow, decimal-leading-zero); font-weight: bold; }
+        .inv-table td textarea {
+            width: 100%; min-height: 24px; border: none; background: transparent;
+            font: inherit; color: #000; resize: none; outline: none; display: block;
+        }
+        .inv-table td input[type="number"] {
+            width: 100%; border: none; background: transparent;
+            font: inherit; color: #000; text-align: right; outline: none;
+        }
+
+        .inv-lower { display: flex; gap: 20px; align-items: flex-start; margin-top: 12px; flex-wrap: wrap; }
+        .inv-totals { width: 285px; margin-left: auto; font-variant-numeric: tabular-nums; }
+        .inv-totals > div { display: flex; justify-content: space-between; gap: 14px; padding: 4px 0; }
+        .inv-totals .grand {
+            font-weight: 700; border-top: 2px solid #1B3A5F;
+            margin-top: 5px; padding-top: 7px; font-size: 12.5px; color: #1B3A5F;
+        }
+        .inv-totals input[type="number"] {
+            width: 80px; text-align: right; border: none; border-bottom: 1px dotted #000;
+            background: transparent; font: inherit; color: #000; outline: none;
+        }
+        .inv-words {
+            margin-top: 12px; padding-top: 7px; border-top: 1px solid #1B3A5F;
+            font-weight: 600;
+        }
+        .inv-words .words-text { font-weight: normal; font-style: italic; letter-spacing: .2px; }
+
+        .inv-stamp {
+            position: absolute; right: 20mm; bottom: 42mm;
+            width: 110px; height: 110px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; color: #1B3A5F; font-weight: 700; letter-spacing: .6px;
+        }
+
+        .inv-footer {
+            display: flex; align-items: center; gap: 12px;
+            border-top: 1px solid #1B3A5F; padding-top: 8px; margin-top: auto;
+            font-size: 9.5px; line-height: 1.55;
+        }
+        .inv-footer .inv-logo { width: auto; height: auto; font-size: 18px; flex-shrink: 0; }
+        .inv-footer .inv-logo img { max-width: none; max-height: none; }
+
+                /* ── Toast ── */
+        #toast {
+            display: none; position: fixed; bottom: 30px; left: 50%;
+            transform: translateX(-50%); padding: 12px 28px;
+            border-radius: 6px; font-size: 14px; font-weight: bold;
+            color: white; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,.3);
+        }
+        #toast.success { background: #16a34a; }
+        #toast.error   { background: #dc2626; }
+
+        @media (max-width: 760px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .span2 { grid-column: auto; }
+            .company-facts { grid-template-columns: 1fr; padding-left: 0; border-left: none; }
+            .totals-card { width: 100%; }
+            .topbar { flex-direction: column; align-items: flex-start; }
+        }
+
+        @media screen {
+            .invoice { min-height: 295mm; }
+        }
+
+        @media print {
+            @page { size: A4; margin: 0; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            body { background: white; padding: 0; }
+            .container { padding: 0; max-width: none; }
+            .invoice { box-shadow: none; margin: 0; width: 100%; min-height: 296mm; }
+            .preview-label { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+{% include "_sidebar.html" %}
+
+<main class="container">
+
+    <!-- Company information, well organized -->
+    <section class="company-banner no-print">
+        <div class="company-brand">
+            {% if company.logo %}<img src="/logo" alt="Logo {{ company.name }}">{% endif %}
+            <div>
+                <h1>{{ company.name }}</h1>
+                {% if company.description %}<p>{{ company.description }}</p>{% endif %}
+            </div>
+        </div>
+        <div class="company-facts">
+            {% if company.address %}
+            <div class="fact full">
+                <span class="k">Adresse</span>
+                <span class="v">{{ company.address }}</span>
+            </div>
+            {% endif %}
+            {% if company.phone %}
+            <div class="fact"><span class="k">Téléphone</span><span class="v">{{ company.phone }}</span></div>
+            {% endif %}
+            {% if company.email %}
+            <div class="fact"><span class="k">Email</span><span class="v">{{ company.email }}</span></div>
+            {% endif %}
+            {% if company.website %}
+            <div class="fact"><span class="k">Site web</span><span class="v">{{ company.website }}</span></div>
+            {% endif %}
+            {% if company.rc %}
+            <div class="fact"><span class="k">RC</span><span class="v">{{ company.rc }}</span></div>
+            {% endif %}
+            {% if company.nif %}
+            <div class="fact"><span class="k">NIF</span><span class="v">{{ company.nif }}</span></div>
+            {% endif %}
+            {% if company.nis %}
+            <div class="fact"><span class="k">NIS</span><span class="v">{{ company.nis }}</span></div>
+            {% endif %}
+            {% if company.ai %}
+            <div class="fact"><span class="k">AI</span><span class="v">{{ company.ai }}</span></div>
+            {% endif %}
+            {% if company.bank %}
+            <div class="fact full"><span class="k">Compte bancaire</span><span class="v">{{ company.bank }}</span></div>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Isolated form -->
+    <form id="invoice-form" class="card no-print" autocomplete="off">
+        <div class="card-head">
+            <div class="card-title">
+                Nouvelle facture
+                <span class="num-chip">{{ facture_num }}</span>
+            </div>
+            <div class="card-sub">Remplissez le formulaire, vérifiez l'aperçu, puis générez la facture.</div>
+        </div>
+
+        <div class="card-body">
+
+            <!-- Facture info -->
+            <div class="form-section">
+                <div class="section-title">1. Informations de la facture</div>
+                <div class="form-grid">
+                    <label class="field">
+                        <span>Numéro de facture</span>
+                        <input type="text" id="facture-num" value="{{ facture_num }}" readonly>
+                    </label>
+                    <label class="field">
+                        <span>Date de la facture</span>
+                        <input type="date" id="facture-date" value="{{ facture_date }}">
+                    </label>
+                    <label class="field">
+                        <span>Chargé de compte</span>
+                        <input type="text" id="charge" placeholder="Nom du chargé de compte">
+                    </label>
+                    <label class="field">
+                        <span>Secteur d'activité</span>
+                        <input type="text" id="secteur" placeholder="ex: Informatique, Marketing…">
+                    </label>
+                    <label class="field">
+                        <span>Mode de règlement</span>
+                        <input type="text" id="mode-reglement" placeholder="Chèque, virement, espèces…">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Client -->
+            <div class="form-section">
+                <div class="section-title">2. Client</div>
+                <div class="picker no-print">
+                    <select id="client-picker-select" onchange="pickClient(this.value)">
+                        <option value="">— Choisir un client existant (ou saisir un nouveau ci-dessous) —</option>
+                    </select>
+                    <a href="/clients" class="pick-link">Gérer les clients</a>
+                </div>
+                <div class="form-grid">
+                    <label class="field span2">
+                        <span>Doit (nom du client)</span>
+                        <input type="text" id="client-doit" placeholder="Raison sociale du client">
+                    </label>
+                    <label class="field span2">
+                        <span>Adresse</span>
+                        <input type="text" id="client-adresse" placeholder="Adresse du client">
+                    </label>
+                    <label class="field">
+                        <span>AI</span>
+                        <input type="text" id="client-ai">
+                    </label>
+                    <label class="field">
+                        <span>RC</span>
+                        <input type="text" id="client-rc">
+                    </label>
+                    <label class="field">
+                        <span>NIF</span>
+                        <input type="text" id="client-nif">
+                    </label>
+                    <label class="field">
+                        <span>NIS</span>
+                        <input type="text" id="client-nis">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Services -->
+            <div class="form-section">
+                <div class="section-title">3. Services</div>
+                <table class="lines-table">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Détails</th>
+                            <th class="w-price">Prix total (DA)</th>
+                            <th class="w-del"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="lines-body"></tbody>
+                </table>
+                <div class="picker no-print">
+                    <select id="service-picker">
+                        <option value="">— Choisir un service du catalogue —</option>
+                        {% for sv in services %}
+                        <option value="{{ sv.id }}" data-name="{{ sv.name|e }}" data-details="{{ sv.details|e }}" data-price="{{ sv.price or 0 }}">{{ sv.name }}{% if sv.price %} — {{ '%.2f'|format(sv.price) }} DA{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn-pick" onclick="addFromCatalogue()">+ Ajouter ce service</button>
+                    <a href="/services" class="pick-link">Gérer les services</a>
+                </div>
+                <button type="button" class="btn-add-line" onclick="addLine()">+ Ajouter une ligne vide</button>
+
+                <div class="totals-wrap">
+                    <div class="words-box">
+                        <div class="words-label">Montant en lettres</div>
+                        <div id="montant-lettre"></div>
+                    </div>
+                    <div class="totals-card">
+                        <table>
+                            <tr><td>Total HT</td><td class="val"><span id="montant-ht">0,00</span> DA</td></tr>
+                            <tr><td>TVA (19%)</td><td class="val"><span id="montant-tva">0,00</span> DA</td></tr>
+                            <tr><td>Total TTC</td><td class="val"><span id="montant-ttc">0,00</span> DA</td></tr>
+                            <tr>
+                                <td>Timbre</td>
+                                <td class="val"><input type="number" id="timbre" value="0" min="0" step="0.01"> DA</td>
+                            </tr>
+                            <tr class="net"><td>Net à payer</td><td class="val"><span id="net-a-payer">0,00</span> DA</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </form>
+
+    <!-- Preview -->
+    <div class="preview-label no-print">Aperçu de la facture</div>
+
+    <div class="invoice" id="preview">
+        <div class="inv-header">
+            <div class="inv-logo">
+                {% if company.logo %}<img src="/logo" alt="Logo {{ company.name }}" style="width: {{ company.logo_size }}px">{% else %}{{ company.name[:1] }}{% endif %}
+            </div>
+            <div class="inv-company">
+                {% if not company.logo %}<h1>{{ company.name }}</h1>{% endif %}
+                {% if company.description %}<p>{{ company.description }}</p>{% endif %}
+                {% if company.address %}<p><b>Adresse :</b> {{ company.address }}</p>{% endif %}
+                <p>
+                    {% if company.rc %}<b>RC :</b> {{ company.rc }}{% endif %}
+                    {% if company.nif %}&nbsp; <b>NIF :</b> {{ company.nif }}{% endif %}
+                    {% if company.ai %}&nbsp; <b>AI :</b> {{ company.ai }}{% endif %}
+                    {% if company.nis %}&nbsp; <b>NIS :</b> {{ company.nis }}{% endif %}
+                </p>
+                <p>
+                    {% if company.phone %}<b>Tél :</b> {{ company.phone }}{% endif %}
+                    {% if company.email %}&nbsp; <b>Email :</b> {{ company.email }}{% endif %}
+                    {% if company.website %}&nbsp; <b>Web :</b> {{ company.website }}{% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="inv-main">
+            <div class="inv-title-row">
+                <h2 class="inv-title">FACTURE</h2>
+                <div class="inv-meta">
+                    <span class="meta-label">Facture n° :</span>
+                    <span class="meta-value" id="pv-facture-num"></span>
+                    <span class="meta-label">Date :</span>
+                    <span class="meta-value" id="pv-facture-date"></span>
+                </div>
+            </div>
+
+                        <div class="inv-billed" style="font-size: {{ company.billed_text_size }}px">
+                <div class="inv-billed-title">Facturé à</div>
+                <div class="inv-field"><b>Client :</b>
+                    <span class="inv-billed-name" id="pv-client-doit"></span>
+                </div>
+                <div class="inv-field"><b>Adresse :</b>
+                    <span class="inv-billed-line" id="pv-client-adresse"></span>
+                </div>
+                <div class="inv-billed-ids">
+                    <span class="inv-id"><b>RC :</b> <span class="id-value" id="pv-client-rc"></span></span>
+                    <span class="inv-id"><b>AI :</b> <span class="id-value" id="pv-client-ai"></span></span>
+                    <span class="inv-id"><b>NIF :</b> <span class="id-value" id="pv-client-nif"></span></span>
+                    <span class="inv-id"><b>NIS :</b> <span class="id-value" id="pv-client-nis"></span></span>
+                </div>
+            </div>
+
+<div class="inv-extra">
+                <div class="inv-extra-cell"><b>Chargé de compte :</b><span class="box-value" id="pv-charge"></span></div>
+                <div class="inv-extra-cell"><b>Secteur :</b><span class="box-value" id="pv-secteur"></span></div>
+                <div class="inv-extra-cell"><b>Mode de paiement :</b><span class="box-value" id="pv-mode-reglement"></span></div>
+            </div>
+
+<table class="inv-table">
+                <thead>
+                    <tr>
+                        <th class="c-ref">REF</th>
+                        <th>DÉSIGNATION</th>
+                        <th>DÉTAILS</th>
+                        <th class="num c-amount">MONTANT</th>
+                    </tr>
+                </thead>
+                <tbody id="pv-services-body"></tbody>
+            </table>
+
+            <div class="inv-lower">
+                <div class="inv-totals">
+                    <div><span>Montant HT :</span><span><b id="pv-montant-ht">0,00</b> DA</span></div>
+                    <div><span>TVA 19% :</span><span><b id="pv-montant-tva">0,00</b> DA</span></div>
+                    <div><span>Total en TTC :</span><span><b id="pv-montant-ttc">0,00</b> DA</span></div>
+                    <div><span>Timbre :</span><span><b id="pv-timbre">0,00</b> DA</span></div>
+                    <div class="grand"><span>Net à payer :</span><span><b id="pv-net-a-payer">0,00</b> DA</span></div>
+                </div>
+            </div>
+
+            <div class="inv-words">
+                <u>Montant à payer en lettres</u><br>
+                <span class="words-text" id="pv-montant-lettre"></span>
+            </div>
+        </div>
+
+        <div class="inv-stamp">CACHET</div>
+
+        <div class="inv-footer">
+            <div class="inv-logo">{% if company.logo_footer or company.logo %}<img src="/logo/footer" alt="Logo {{ company.name }}" style="width: {{ company.logo_footer_size }}px">{% else %}{{ company.name[:1] }}{% endif %}</div>
+            <div>
+                <b>Direction générale :</b> {% if company.address %}{{ company.address | replace('
+', ', ') }}{% endif %}<br>
+                {% if company.rc %}RC : {{ company.rc }}{% endif %}
+                {% if company.nif %} - NIF : {{ company.nif }}{% endif %}
+                {% if company.nis %} - NIS : {{ company.nis }}{% endif %}
+                {% if company.ai %} - AI : {{ company.ai }}{% endif %}
+                {% if company.phone %}<br>Tél : {{ company.phone }}{% endif %}
+                {% if company.email %} - {{ company.email }}{% endif %}
+                {% if company.website %} - {{ company.website }}{% endif %}
+                {% if company.bank %}<br><b>Compte bancaire :</b> {{ company.bank | replace('
+', ' ') }}{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Generate -->
+    <div class="generate-bar no-print">
+        <div class="hint">
+            Vérifiez le numéro, le client, les lignes et les montants dans l'aperçu.
+            La facture n'est créée qu'après validation du formulaire.
+        </div>
+        <button class="btn-generate" id="btn-generate" onclick="generateInvoice()">
+            &#10003; Générer la facture
+        </button>
+    </div>
+
+</main>
+
+{% set inline_picker = true %}{% include "_client_picker.html" %}
+<div id="toast"></div>
+
+<script>
+// ── Helpers ───────────────────────────────────────────────────────────────
+function val(id) {
+    return document.getElementById(id).value.trim();
+}
+
+function fmt(n) {
+    return n.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = type;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+function today() {
+    return new Date().toISOString().split('T')[0];
+}
+
+// ── Line management ───────────────────────────────────────────────────────
+function addLine(service = '', details = '', prix = '') {
+    const tbody = document.getElementById('lines-body');
+    const tr = document.createElement('tr');
+
+    const tdService = document.createElement('td');
+    const taService = document.createElement('textarea');
+    taService.rows = 2;
+    taService.placeholder = 'Désignation du service';
+    taService.value = service;
+    tdService.appendChild(taService);
+
+    const tdDetails = document.createElement('td');
+    const taDetails = document.createElement('textarea');
+    taDetails.rows = 2;
+    taDetails.placeholder = 'Détails / description';
+    taDetails.value = details;
+    tdDetails.appendChild(taDetails);
+
+    const tdPrice = document.createElement('td');
+    const inputPrice = document.createElement('input');
+    inputPrice.type = 'number';
+    inputPrice.min = '0';
+    inputPrice.step = '0.01';
+    inputPrice.placeholder = '0.00';
+    if (prix !== '') inputPrice.value = prix;
+    tdPrice.appendChild(inputPrice);
+
+    const tdDel = document.createElement('td');
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'btn-row-del';
+    del.innerHTML = '&#10005;';
+    del.title = 'Supprimer cette ligne';
+    del.onclick = () => { tr.remove(); refresh(); };
+    tdDel.appendChild(del);
+
+    tr.append(tdService, tdDetails, tdPrice, tdDel);
+    tbody.appendChild(tr);
+}
+
+function addFromCatalogue() {
+    const sel = document.getElementById('service-picker');
+    const o = sel.selectedOptions[0];
+    if (!o || !o.value) { showToast('Choisissez un service', 'error'); return; }
+    // drop untouched empty lines so the picked service takes their place
+    document.querySelectorAll('#lines-body tr').forEach(tr => {
+        const v = [...tr.querySelectorAll('textarea,input')].map(x => x.value.trim()).join('');
+        if (!v) tr.remove();
+    });
+    addLine(o.dataset.name, o.dataset.details, parseFloat(o.dataset.price) || '');
+    sel.value = '';
+    refresh();
+}
+
+function collectLines() {
+    const lines = [];
+    document.querySelectorAll('#lines-body tr').forEach(row => {
+        const tas = row.querySelectorAll('textarea');
+        const prix = row.querySelector('input[type="number"]');
+        lines.push({
+            service: (tas[0]?.value || '').trim(),
+            details: (tas[1]?.value || '').trim(),
+            prix: parseFloat(prix?.value) || 0
+        });
+    });
+    return lines;
+}
+
+// ── Totals + preview ──────────────────────────────────────────────────────
+function computeTotals() {
+    let ht = 0;
+    document.querySelectorAll('#lines-body input[type="number"]').forEach(inp => {
+        ht += parseFloat(inp.value) || 0;
+    });
+    const tva = ht * 0.19;
+    const ttc = ht + tva;
+    const timbre = parseFloat(document.getElementById('timbre').value) || 0;
+    return { ht, tva, ttc, timbre, net: ttc + timbre };
+}
+
+function montantLettres(net) {
+    const cents = Math.round((net % 1) * 100);
+    let words = numberToFrench(Math.floor(net)) + ' dinars algériens';
+    if (cents > 0) words += ' et ' + numberToFrench(cents) + ' centimes';
+    return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value || '';
+}
+
+function refresh() {
+    const t = computeTotals();
+    const words = t.net > 0 ? montantLettres(t.net) : '';
+
+    setText('montant-ht', fmt(t.ht));
+    setText('montant-tva', fmt(t.tva));
+    setText('montant-ttc', fmt(t.ttc));
+    setText('net-a-payer', fmt(t.net));
+    setText('montant-lettre', words || '—');
+
+    // Preview — identification
+    setText('pv-facture-num', val('facture-num'));
+    setText('pv-facture-date', val('facture-date') ? new Date(val('facture-date') + 'T00:00:00')
+        .toLocaleDateString('fr-FR') : '');
+    setText('pv-client-doit', val('client-doit'));
+    setText('pv-client-adresse', val('client-adresse'));
+    setText('pv-client-ai', val('client-ai'));
+    setText('pv-client-rc', val('client-rc'));
+    setText('pv-client-nif', val('client-nif'));
+    setText('pv-client-nis', val('client-nis'));
+    setText('pv-charge', val('charge'));
+    setText('pv-secteur', val('secteur'));
+    setText('pv-mode-reglement', val('mode-reglement'));
+
+    // Preview — lines
+    const pvBody = document.getElementById('pv-services-body');
+    pvBody.innerHTML = '';
+    const filled = collectLines().filter(l => l.service || l.details || l.prix > 0);
+    if (filled.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 4;
+        td.style.textAlign = 'center';
+        td.style.color = '#9ca3af';
+        td.textContent = 'Les lignes de service apparaîtront ici.';
+        tr.appendChild(td);
+        pvBody.appendChild(tr);
+    } else {
+        filled.forEach(line => {
+            const tr = document.createElement('tr');
+            const cRef = document.createElement('td');
+            const c1 = document.createElement('td');
+            const c2 = document.createElement('td');
+            const c3 = document.createElement('td');
+            cRef.className = 'c-ref';
+            c1.textContent = line.service;
+            c2.textContent = line.details;
+            c3.textContent = line.prix ? fmt(line.prix) + ' DA' : '';
+            c3.className = 'num c-amount';
+            tr.append(cRef, c1, c2, c3);
+            pvBody.appendChild(tr);
+        });
+    }
+
+    // Preview — totals
+    setText('pv-montant-ht', fmt(t.ht));
+    setText('pv-montant-tva', fmt(t.tva));
+    setText('pv-montant-ttc', fmt(t.ttc));
+    setText('pv-timbre', fmt(t.timbre));
+    setText('pv-net-a-payer', fmt(t.net));
+    setText('pv-montant-lettre', words);
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────
+async function generateInvoice() {
+    const date = val('facture-date');
+    const client = val('client-doit');
+    const lines = collectLines().filter(l => l.service || l.prix > 0);
+    const t = computeTotals();
+
+    if (!date) {
+        showToast('Veuillez saisir la date de la facture.', 'error');
+        document.getElementById('facture-date').focus();
+        return;
+    }
+    if (!client) {
+        showToast('Veuillez saisir le nom du client (champ « Doit »).', 'error');
+        document.getElementById('client-doit').focus();
+        return;
+    }
+    if (lines.length === 0) {
+        showToast('Ajoutez au moins une ligne avec un service et un prix.', 'error');
+        return;
+    }
+    if (t.net <= 0) {
+        showToast('Le montant net à payer doit être supérieur à 0.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-generate');
+    btn.disabled = true;
+    btn.textContent = 'Génération...';
+
+    const payload = {
+        facture_num:    val('facture-num'),
+        facture_date:   date,
+        client_doit:    client,
+        client_adresse: val('client-adresse') || null,
+        client_ai:      val('client-ai') || null,
+        client_rc:      val('client-rc') || null,
+        client_nif:     val('client-nif') || null,
+        client_nis:     val('client-nis') || null,
+        charge:         val('charge') || null,
+        secteur:        val('secteur') || null,
+        mode_reglement: val('mode-reglement') || null,
+        timbre:         t.timbre,
+        montant_lettre: montantLettres(t.net),
+        services:       lines,
+        montant_ht:     t.ht,
+        montant_tva:    t.tva,
+        montant_ttc:    t.ttc,
+        net_a_payer:    t.net
+    };
+
+    try {
+        const res = await fetch('/api/invoices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Facture générée avec succès !', 'success');
+            setTimeout(() => { window.location.href = '/invoice/' + data.id; }, 900);
+        } else {
+            showToast(data.detail || 'Erreur lors de la génération.', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '&#10003; Générer la facture';
+        }
+    } catch (e) {
+        showToast('Erreur réseau. Vérifiez le serveur.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '&#10003; Générer la facture';
+    }
+}
+
+// ── Number → French words ─────────────────────────────────────────────────
+function numberToFrench(n) {
+    if (n === 0) return 'zéro';
+    if (n < 0) return 'moins ' + numberToFrench(-n);
+
+    const ones = [
+        '', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf',
+        'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize',
+        'dix-sept', 'dix-huit', 'dix-neuf'
+    ];
+    const tens = [
+        '', 'dix', 'vingt', 'trente', 'quarante', 'cinquante',
+        'soixante', 'soixante-dix', 'quatre-vingts', 'quatre-vingt-dix'
+    ];
+
+    function belowHundred(n) {
+        if (n < 20) return ones[n];
+        const t = Math.floor(n / 10), o = n % 10;
+        if (t === 7) return 'soixante-' + ones[10 + o];
+        if (t === 8) return o === 0 ? 'quatre-vingts' : 'quatre-vingt-' + ones[o];
+        if (t === 9) return 'quatre-vingt-' + ones[10 + o];
+        return tens[t] + (o === 0 ? '' : (o === 1 ? '-et-un' : '-' + ones[o]));
+    }
+
+    function belowThousand(n) {
+        if (n < 100) return belowHundred(n);
+        const h = Math.floor(n / 100), r = n % 100;
+        const hStr = h === 1 ? 'cent' : ones[h] + ' cent' + (r === 0 && h > 1 ? 's' : '');
+        return hStr + (r > 0 ? ' ' + belowHundred(r) : '');
+    }
+
+    function convert(n) {
+        if (n === 0) return '';
+        if (n < 1000) return belowThousand(n);
+        if (n < 1000000) {
+            const t = Math.floor(n / 1000), r = n % 1000;
+            const thousands = belowThousand(t)
+                .replace(/cents$/, 'cent')
+                .replace(/quatre-vingts$/, 'quatre-vingt');
+            return (t === 1 ? 'mille' : thousands + ' mille') +
+                   (r > 0 ? ' ' + belowThousand(r) : '');
+        }
+        if (n < 1000000000) {
+            const m = Math.floor(n / 1000000), r = n % 1000000;
+            return (m === 1 ? 'un million' : belowThousand(m) + ' millions') +
+                   (r > 0 ? ' ' + convert(r) : '');
+        }
+        const b = Math.floor(n / 1000000000), r = n % 1000000000;
+        return (b === 1 ? 'un milliard' : belowThousand(b) + ' milliards') +
+               (r > 0 ? ' ' + convert(r) : '');
+    }
+
+    return convert(n);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const dateInput = document.getElementById('facture-date');
+    if (!dateInput.value) dateInput.value = today();
+
+    addLine(); addLine(); addLine();
+
+    document.getElementById('invoice-form').addEventListener('input', refresh);
+    document.getElementById('invoice-form').addEventListener('change', refresh);
+
+    refresh();
+});
+</script>
+</body>
+</html>

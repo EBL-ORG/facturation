@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bon de Commande {{ bc_num }} - EURL E-BUSINESS LAB</title>
+    <title>Bon de Commande {{ bc_num }} - {{ company.name }}</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -119,6 +119,14 @@
             margin-bottom: 6px;
         }
 
+        .company-logo {
+            max-height: 58px;
+            max-width: 180px;
+            display: block;
+            margin: 0 auto 6px;
+            object-fit: contain;
+        }
+
         .company-name {
             font-size: 20px;
             font-weight: bold;
@@ -130,12 +138,14 @@
             line-height: 1.5;
             max-width: 420px;
             margin: 0 auto;
+            white-space: pre-line;
         }
 
         .company-contact {
             font-size: 10px;
             margin-top: 3px;
             line-height: 1.6;
+            white-space: pre-line;
         }
 
         .separator {
@@ -201,6 +211,7 @@
             border-right: 1px solid #000;
             font-size: 10px;
             line-height: 1.8;
+            white-space: pre-line;
         }
 
         .info-company strong {
@@ -404,9 +415,12 @@
         #toast.success { background: #16a34a; }
         #toast.error   { background: #dc2626; }
     </style>
+    {% include "_doc_theme.html" %}
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
+{% include "_sidebar.html" %}
 
 <!-- ── Injected server data ── -->
 <script>
@@ -438,92 +452,56 @@
 <!-- Toast notification -->
 <div id="toast"></div>
 
+{% include "_client_picker.html" %}
 <div class="invoice">
 
     <!-- ══ HEADER ══ -->
-    <div class="header">
-        <div class="company-name">EURL E- BUSINESS LAB</div>
-        <div class="company-desc">
-            Entreprise Algerienne spécialisée dans l'accompagnement stratégique, le marketing,
-            le développement et les solution digitaux.
+    <div class="inv-header">
+        <div class="inv-logo">
+            {% if company.logo %}<img src="/logo" alt="Logo {{ company.name }}" style="width: {{ company.logo_size }}px">{% else %}{{ company.name[:1] }}{% endif %}
         </div>
-        <div class="company-contact">
-            &#128204; Rue colonel Amirouche Bordj el Kiffan, Bab ezzouar, Alger, Algerie<br>
-            Tel : 0.20.19.19.63
+        <div class="inv-company">
+            {% if not company.logo %}<h1>{{ company.name }}</h1>{% endif %}
+            {% if company.description %}<p>{{ company.description }}</p>{% endif %}
+            {% if company.address %}<p><b>Adresse :</b> {{ company.address }}</p>{% endif %}
+            <p>
+                {% if company.rc %}<b>RC :</b> {{ company.rc }}{% endif %}
+                {% if company.nif %} &nbsp; <b>NIF :</b> {{ company.nif }}{% endif %}
+                {% if company.ai %} &nbsp; <b>AI :</b> {{ company.ai }}{% endif %}
+                {% if company.nis %} &nbsp; <b>NIS :</b> {{ company.nis }}{% endif %}
+            </p>
+            <p>
+                {% if company.phone %}<b>Tél :</b> {{ company.phone }}{% endif %}
+                {% if company.email %} &nbsp; <b>Email :</b> {{ company.email }}{% endif %}
+                {% if company.website %} &nbsp; <b>Web :</b> {{ company.website }}{% endif %}
+            </p>
         </div>
     </div>
-
-    <hr class="separator">
 
     <!-- ══ DOCUMENT TITLE ══ -->
-    <div class="doc-title">Bon de Commande</div>
-
-    <!-- ══ N° + DATE ══ -->
-    <div class="num-date-row">
-        <div class="num-cell">
-            <span class="num-label">N° de Commande :</span>
-            <input type="text" class="num-input" id="bc-num" readonly>
-        </div>
-        <div class="num-cell">
-            <span class="num-label">DATE :</span>
-            <input type="date" class="num-input" id="bc-date">
+    <div class="inv-title-row">
+        <h1 class="inv-title inv-title--long">BON DE COMMANDE</h1>
+        <div class="inv-meta">
+            <span class="meta-label">N° de Commande :</span>
+            <input type="text" class="line-input" id="bc-num" readonly>
+            <span class="meta-label">Date :</span>
+            <input type="date" class="line-input" id="bc-date">
         </div>
     </div>
 
-    <!-- ══ COMPANY + CLIENT INFO ══ -->
-    <div class="info-section">
-        <!-- Company (fixed) -->
-        <div class="info-company">
-            <strong>Au nom de: E BUSINESS LAB</strong><br>
-            RC : 25B1054070 - 16/00.&nbsp;&nbsp; NIS : 0025163002578 41<br>
-            NIF : 002516105407061.&nbsp;&nbsp; AI: 16300214211<br>
-            Adresse : Rue colonel Amirouche Bordj el Kiffan,<br>
-            Bab ezzouar, Alger, Algerie<br>
-            Téléphone : 0.20.19.19.63 / 0550 36 19 92<br>
-            E-mail : e.businesslab.dz@gmail.com
-        </div>
-        <!-- Client (editable) -->
-        <div class="info-client">
-            <div class="field-row">
-                <span class="field-label">Adressé à :</span>
-                <input type="text" class="field-input" id="client-adresse-a">
-            </div>
-            <div class="field-row">
-                <span class="field-label">Nom client :</span>
-                <input type="text" class="field-input" id="client-nom">
-            </div>
-            <div class="field-row-2">
-                <div class="sub-field">
-                    <span class="field-label">RC :</span>
-                    <input type="text" class="field-input" id="client-rc">
-                </div>
-                <div class="sub-field">
-                    <span class="field-label">NIF :</span>
-                    <input type="text" class="field-input" id="client-nif">
-                </div>
-            </div>
-            <div class="field-row-2">
-                <div class="sub-field">
-                    <span class="field-label">NIS :</span>
-                    <input type="text" class="field-input" id="client-nis">
-                </div>
-                <div class="sub-field">
-                    <span class="field-label">ART :</span>
-                    <input type="text" class="field-input" id="client-art">
-                </div>
-            </div>
-            <div class="field-row">
-                <span class="field-label">Téléphone :</span>
-                <input type="text" class="field-input" id="client-tel">
-            </div>
-            <div class="field-row">
-                <span class="field-label">Adresse :</span>
-                <input type="text" class="field-input" id="client-adresse">
-            </div>
-        </div>
+    <!-- ══ CLIENT ══ -->
+    <div class="inv-billed" style="font-size: {{ company.billed_text_size }}px">
+        <div class="inv-billed-title">Client</div>
+        <div class="inv-field"><b>Adressé à :</b> <input type="text" id="client-adresse-a" class="inv-billed-input"></div>
+        <div class="inv-field"><b>Nom :</b> <input type="text" id="client-nom" class="inv-billed-input name"></div>
+        <div class="inv-field"><b>RC :</b> <input type="text" id="client-rc" class="inv-billed-input"></div>
+        <div class="inv-field"><b>NIF :</b> <input type="text" id="client-nif" class="inv-billed-input"></div>
+        <div class="inv-field"><b>NIS :</b> <input type="text" id="client-nis" class="inv-billed-input"></div>
+        <div class="inv-field"><b>ART :</b> <input type="text" id="client-art" class="inv-billed-input"></div>
+        <div class="inv-field"><b>Téléphone :</b> <input type="text" id="client-tel" class="inv-billed-input"></div>
+        <div class="inv-field"><b>Adresse :</b> <input type="text" id="client-adresse" class="inv-billed-input"></div>
     </div>
 
-    <!-- ══ TABLE LABEL ══ -->
     <div class="details-label">Détails de la commande :</div>
 
     <!-- ══ ITEMS TABLE ══ -->
@@ -575,8 +553,14 @@
 
     <!-- ══ FOOTER ══ -->
     <div class="footer">
-        EURL E-BUSINESS LAB &mdash; Rue colonel Amirouche Bordj el Kiffan, Bab ezzouar, Alger, Algerie &mdash;
-        Tel : 0.20.19.19.63 &mdash; e.businesslab.dz@gmail.com
+        <div class="footer-logo">{% if company.logo_footer or company.logo %}<img src="/logo/footer" alt="Logo {{ company.name }}" style="width: {{ company.logo_footer_size }}px">{% else %}{{ company.name[:1] }}{% endif %}</div>
+        <div class="footer-content">
+            {{ company.name }}
+            {% if company.address %} &mdash; {{ company.address | replace('\n', ', ') }}{% endif %}
+            {% if company.phone %} &mdash; Tel : {{ company.phone }}{% endif %}
+            {% if company.email %} &mdash; {{ company.email }}{% endif %}
+            {% if company.website %} &mdash; {{ company.website }}{% endif %}
+        </div>
     </div>
 
 </div><!-- .invoice -->

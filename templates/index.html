@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tableau de bord - EURL E-BUSINESS LAB</title>
+    <title>Tableau de bord - {{ company.name }}</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -272,30 +272,7 @@
 </head>
 <body>
 
-<!-- Header -->
-<header class="page-header">
-    <div>
-        <div class="brand">EURL E-BUSINESS LAB</div>
-        <div class="subtitle">Tableau de bord</div>
-    </div>
-    <div class="header-right">
-        <div class="user-badge">
-            &#128100; {{ current_user.username }}
-            <span class="role-tag {% if current_user.role == 'admin' %}admin{% endif %}">
-                {{ current_user.role }}
-            </span>
-        </div>
-        <a href="/invoice/new"  class="btn-new">&#43; Facture</a>
-        <a href="/proforma/new" class="btn-new purple">&#43; Proforma</a>
-        <a href="/devis/new"    class="btn-new teal">&#43; Devis</a>
-        <a href="/bc/new"       class="btn-new orange">&#43; Bon de commande</a>
-        <a href="/bv/new"       class="btn-new green">&#43; Bon de versement</a>
-        {% if current_user.role == 'admin' %}
-        <a href="/admin/users" class="btn-logout" style="background:rgba(255,255,255,.12);">&#128273; Comptes</a>
-        {% endif %}
-        <a href="/logout" class="btn-logout">Déconnexion</a>
-    </div>
-</header>
+{% include "_sidebar.html" %}
 
 <!-- Main -->
 <main class="container">

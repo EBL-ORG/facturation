@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion des utilisateurs - EURL E-BUSINESS LAB</title>
+    <title>Gestion des utilisateurs - {{ company.name }}</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -319,11 +319,12 @@
     </style>
 </head>
 <body>
+{% include "_sidebar.html" %}
 
 <!-- Header -->
 <header class="page-header">
     <div>
-        <div class="brand">EURL E-BUSINESS LAB</div>
+        <div class="brand">{{ company.name }}</div>
         <div class="subtitle">Gestion des utilisateurs</div>
     </div>
     <div class="header-right">
@@ -332,6 +333,7 @@
             <span class="role-tag admin">admin</span>
         </div>
         <a href="/" class="btn-header">&#8592; Tableau de bord</a>
+        <a href="/admin/company" class="btn-header">&#127970; Entreprise</a>
         <a href="/logout" class="btn-header">Déconnexion</a>
     </div>
 </header>

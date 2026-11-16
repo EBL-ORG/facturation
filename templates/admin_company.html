@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informations entreprise - {{ company.name }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            background: #f1f5f9;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .page-header {
+            background: #1e3a5f;
+            color: white;
+            padding: 18px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,.3);
+        }
+
+        .page-header .brand { font-size: 18px; font-weight: bold; }
+        .page-header .subtitle { font-size: 12px; opacity: .75; margin-top: 2px; }
+
+        .header-right { display: flex; align-items: center; gap: 12px; }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,.12);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 12px;
+        }
+
+        .role-tag {
+            background: #2563eb;
+            color: white;
+            border-radius: 10px;
+            padding: 1px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+        .role-tag.admin { background: #d97706; }
+
+        .btn-header {
+            background: rgba(255,255,255,.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,.3);
+            border-radius: 6px;
+            padding: 7px 16px;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background .2s;
+        }
+        .btn-header:hover { background: rgba(255,255,255,.25); }
+
+        /* ── Main ── */
+        .container {
+            max-width: 900px;
+            margin: 36px auto;
+            padding: 0 24px 60px;
+        }
+
+        .page-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #1e3a5f;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert {
+            padding: 12px 18px;
+            border-radius: 7px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .alert.success { background: #f0fdf4; border: 1px solid #86efac; color: #16a34a; }
+        .alert.error   { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; }
+
+        /* ── Cards ── */
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.1);
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            background: #eff6ff;
+            padding: 14px 22px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #1e3a5f;
+            border-bottom: 1px solid #bfdbfe;
+        }
+
+        .card-body { padding: 20px 22px; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .grid .full { grid-column: 1 / -1; }
+
+        .form-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: bold;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            margin-bottom: 5px;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="tel"],
+        .form-group input[type="url"],
+        .form-group textarea {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 9px 12px;
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .form-group textarea { resize: vertical; min-height: 70px; }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+        }
+
+        .hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+        /* ── Logo ── */
+        .logo-row {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .logo-preview {
+            width: 170px;
+            height: 100px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            overflow: hidden;
+            color: #94a3b8;
+            font-size: 11px;
+            text-align: center;
+            padding: 6px;
+        }
+        .logo-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .logo-actions { flex: 1; min-width: 240px; }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #dc2626;
+        }
+
+        .actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 22px;
+            padding-top: 18px;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 6px;
+            padding: 10px 22px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background .2s;
+        }
+        .btn-save { background: #16a34a; color: white; }
+        .btn-save:hover { background: #15803d; }
+        .btn-cancel { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+        .btn-cancel:hover { background: #e2e8f0; }
+
+        @media (max-width: 640px) {
+            .grid { grid-template-columns: 1fr; }
+            .page-header { flex-direction: column; gap: 12px; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+{% include "_sidebar.html" %}
+
+<!-- Header -->
+<header class="page-header">
+    <div>
+        <div class="brand">{{ company.name }}</div>
+        <div class="subtitle">Informations de l'entreprise</div>
+    </div>
+    <div class="header-right">
+        <div class="user-badge">
+            &#128100; {{ current_user.username }}
+            <span class="role-tag admin">admin</span>
+        </div>
+        <a href="/" class="btn-header">&#8592; Tableau de bord</a>
+        <a href="/admin/users" class="btn-header">&#128273; Comptes</a>
+        <a href="/logout" class="btn-header">Déconnexion</a>
+    </div>
+</header>
+
+<!-- Main -->
+<main class="container">
+
+    <div class="page-title">&#127970; Informations de l'entreprise</div>
+
+    <p style="color:#6b7280; margin-bottom:20px;">
+        Ces informations apparaissent sur les factures, proformas, devis, bons de commande
+        et bons de versement.
+    </p>
+
+    {% if success %}
+    <div class="alert success">&#10003; Informations enregistrées avec succès.</div>
+    {% endif %}
+
+    {% if error %}
+    <div class="alert error">&#9888; {{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/admin/company" enctype="multipart/form-data">
+
+        <!-- Logo en-tête -->
+        <div class="card">
+            <div class="card-header">&#128247; Logo en-tête</div>
+            <div class="card-body">
+                <div class="logo-row">
+                    <div class="logo-preview">
+                        {% if company.logo %}
+                        <img src="{{ company.logo }}" alt="Logo en-tête de l'entreprise">
+                        {% else %}
+                        Aucun logo
+                        {% endif %}
+                    </div>
+                    <div class="logo-actions">
+                        <div class="form-group">
+                            <label for="logo">Ajouter / remplacer le logo d'en-tête</label>
+                            <input type="file" name="logo" id="logo"
+                                   accept="image/png,image/jpeg,image/webp,image/gif">
+                            <div class="hint">PNG, JPG, WEBP ou GIF — 2 Mo maximum.</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="logo_size">Taille du logo d'en-tête (largeur en px)</label>
+                            <input type="number" name="logo_size" id="logo_size"
+                                   min="120" max="600" step="10"
+                                   value="{{ company.logo_size }}">
+                            <div class="hint">Entre 120 et 600 px. Taille actuelle : {{ company.logo_size }} px.</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="billed_text_size">Taille du texte client sur les factures (px)</label>
+                            <input type="number" name="billed_text_size" id="billed_text_size"
+                                   min="8" max="16" step="1"
+                                   value="{{ company.billed_text_size }}">
+                            <div class="hint">Entre 8 et 16 px. Taille actuelle : {{ company.billed_text_size }} px.</div>
+                        </div>
+                        {% if company.logo %}
+                        <label class="checkbox-row">
+                            <input type="checkbox" name="remove_logo" value="1">
+                            Supprimer le logo d'en-tête
+                        </label>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logo pied de page -->
+        <div class="card">
+            <div class="card-header">&#128247; Logo pied de page</div>
+            <div class="card-body">
+                <div class="logo-row">
+                    <div class="logo-preview">
+                        {% if company.logo_footer %}
+                        <img src="{{ company.logo_footer }}" alt="Logo pied de page de l'entreprise">
+                        {% elif company.logo %}
+                        <img src="{{ company.logo }}" alt="Logo pied de page (logo en-tête utilisé)">
+                        {% else %}
+                        Aucun logo
+                        {% endif %}
+                    </div>
+                    <div class="logo-actions">
+                        <div class="form-group">
+                            <label for="logo_footer">Ajouter / remplacer le logo pied de page</label>
+                            <input type="file" name="logo_footer" id="logo_footer"
+                                   accept="image/png,image/jpeg,image/webp,image/gif">
+                            <div class="hint">PNG, JPG, WEBP ou GIF — 2 Mo maximum. Si vide, le logo d'en-tête est utilisé.</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="logo_footer_size">Taille du logo pied de page (largeur en px)</label>
+                            <input type="number" name="logo_footer_size" id="logo_footer_size"
+                                   min="40" max="300" step="10"
+                                   value="{{ company.logo_footer_size }}">
+                            <div class="hint">Entre 40 et 300 px. Taille actuelle : {{ company.logo_footer_size }} px.</div>
+                        </div>
+                        {% if company.logo_footer %}
+                        <label class="checkbox-row">
+                            <input type="checkbox" name="remove_logo_footer" value="1">
+                            Supprimer le logo pied de page
+                        </label>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Identité -->
+        <div class="card">
+            <div class="card-header">&#128196; Identité</div>
+            <div class="card-body">
+                <div class="grid">
+                    <div class="form-group full">
+                        <label for="name">Raison sociale</label>
+                        <input type="text" name="name" id="name" value="{{ company.name }}">
+                    </div>
+                    <div class="form-group full">
+                        <label for="description">Description / activité</label>
+                        <textarea name="description" id="description">{{ company.description }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coordonnées -->
+        <div class="card">
+            <div class="card-header">&#128231; Coordonnées</div>
+            <div class="card-body">
+                <div class="grid">
+                    <div class="form-group full">
+                        <label for="address">Adresse</label>
+                        <textarea name="address" id="address">{{ company.address }}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Téléphone</label>
+                        <input type="tel" name="phone" id="phone" value="{{ company.phone }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" name="email" id="email" value="{{ company.email }}">
+                    </div>
+                    <div class="form-group full">
+                        <label for="website">Site web</label>
+                        <input type="url" name="website" id="website" value="{{ company.website }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations légales -->
+        <div class="card">
+            <div class="card-header">&#9878; Informations légales et bancaires</div>
+            <div class="card-body">
+                <div class="grid">
+                    <div class="form-group">
+                        <label for="rc">RC (Registre de commerce)</label>
+                        <input type="text" name="rc" id="rc" value="{{ company.rc }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="nif">NIF</label>
+                        <input type="text" name="nif" id="nif" value="{{ company.nif }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="nis">NIS</label>
+                        <input type="text" name="nis" id="nis" value="{{ company.nis }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="ai">AI (Article d'imposition)</label>
+                        <input type="text" name="ai" id="ai" value="{{ company.ai }}">
+                    </div>
+                    <div class="form-group full">
+                        <label for="bank">Compte bancaire</label>
+                        <textarea name="bank" id="bank">{{ company.bank }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="/" class="btn btn-cancel">Annuler</a>
+            <button type="submit" class="btn btn-save">&#128190; Enregistrer</button>
+        </div>
+    </form>
+
+</main>
+
+</body>
+</html>

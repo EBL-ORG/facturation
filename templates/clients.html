@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clients - {{ company.name }}</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; background: #eef2f7; color: #1f2937; min-height: 100vh; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 28px 24px 70px; }
+    h1 { font-size: 22px; color: #1e3a5f; margin-bottom: 4px; }
+    .sub { color: #6b7280; margin-bottom: 22px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(15,23,42,.08); margin-bottom: 22px; overflow: hidden; }
+    .card-head { padding: 16px 22px; border-bottom: 1px solid #eef2f7; font-weight: bold; color: #1e3a5f; font-size: 15px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .card-body { padding: 20px 22px; }
+    .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px 16px; }
+    .span2 { grid-column: span 2; } .span3 { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field span { font-size: 10.5px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: .4px; }
+    input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 7px; font: inherit; outline: none; }
+    input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+    .actions { margin-top: 16px; display: flex; gap: 8px; }
+    .btn { border: none; border-radius: 7px; padding: 10px 18px; font-weight: bold; cursor: pointer; font-size: 13px; }
+    .btn-primary { background: #2563eb; color: #fff; } .btn-primary:hover { background: #1d4ed8; }
+    .btn-ghost { background: #f1f5f9; color: #334155; }
+    .btn-del { background: #fef2f2; color: #dc2626; padding: 7px 12px; }
+    .btn-edit { background: #eff6ff; color: #1d4ed8; padding: 7px 12px; }
+    .search { max-width: 260px; }
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: #6b7280; padding: 10px 14px; background: #f8fafc; white-space: nowrap; }
+    td { padding: 11px 14px; border-top: 1px solid #eef2f7; vertical-align: top; }
+    td.act { text-align: right; white-space: nowrap; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .empty { text-align: center; color: #9ca3af; padding: 30px; }
+    #toast { display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); padding:12px 28px; border-radius:6px; font-weight:bold; color:#fff; z-index:1000; }
+    #toast.success { background:#16a34a; } #toast.error { background:#dc2626; }
+    @media (max-width: 760px) { .form-grid { grid-template-columns: 1fr; } .span2 { grid-column: auto; } .container { padding-top: 64px; } }
+</style>
+</head>
+<body>
+{% include "_sidebar.html" %}
+<main class="container">
+    <h1>Clients</h1>
+    <p class="sub">Ajoutez vos clients ici, ou ils sont ajoutés automatiquement lorsque vous créez un document. Sélectionnez-les ensuite dans vos factures, proformas, devis et bons.</p>
+
+    <div class="card">
+        <div class="card-head"><span id="form-title">Ajouter un client</span></div>
+        <div class="card-body">
+            <div class="form-grid">
+                <label class="field span2"><span>Nom / Raison sociale *</span><input id="c-name"></label>
+                <label class="field"><span>Code client</span><input id="c-code"></label>
+                <label class="field"><span>Contact (nom)</span><input id="c-contact"></label>
+                <label class="field"><span>Téléphone</span><input id="c-tel"></label>
+                <label class="field"><span>E-mail</span><input id="c-email"></label>
+                <label class="field span3"><span>Adresse</span><input id="c-address"></label>
+                <label class="field"><span>RC</span><input id="c-rc"></label>
+                <label class="field"><span>NIF</span><input id="c-nif"></label>
+                <label class="field"><span>NIS</span><input id="c-nis"></label>
+                <label class="field"><span>AI</span><input id="c-ai"></label>
+                <label class="field"><span>ART</span><input id="c-art"></label>
+            </div>
+            <div class="actions">
+                <button class="btn btn-primary" id="c-save" onclick="saveClient()">Ajouter</button>
+                <button class="btn btn-ghost" id="c-cancel" onclick="resetForm()" style="display:none">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <span>Liste des clients <span class="muted">({{ clients|length }})</span></span>
+            <input class="search" id="search" placeholder="Rechercher…" oninput="filterRows()">
+        </div>
+        <div class="tbl-wrap">
+        <table>
+            <thead><tr><th>Client</th><th>Contact</th><th>Téléphone / E-mail</th><th>Adresse</th><th>RC / NIF / NIS</th><th></th></tr></thead>
+            <tbody id="rows">
+            {% for c in clients %}
+                <tr data-id="{{ c.id }}" {% for k in ['name','contact','code','address','rc','nif','nis','ai','art','email','tel'] %}data-{{ k }}="{{ c[k]|e }}" {% endfor %}>
+                    <td><b>{{ c.name }}</b>{% if c.code %}<div class="muted">{{ c.code }}</div>{% endif %}</td>
+                    <td>{{ c.contact }}</td>
+                    <td>{{ c.tel }}{% if c.email %}<div class="muted">{{ c.email }}</div>{% endif %}</td>
+                    <td>{{ c.address }}</td>
+                    <td class="muted">{% if c.rc %}RC {{ c.rc }}<br>{% endif %}{% if c.nif %}NIF {{ c.nif }}<br>{% endif %}{% if c.nis %}NIS {{ c.nis }}{% endif %}</td>
+                    <td class="act">
+                        <button class="btn btn-edit" onclick="editClient(this)">Modifier</button>
+                        {% if current_user.role == 'admin' %}<button class="btn btn-del" onclick="deleteClient({{ c.id }})">&#10005;</button>{% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="6" class="empty">Aucun client pour le moment.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</main>
+<div id="toast"></div>
+<script>
+const FIELDS = ['name','contact','code','address','rc','nif','nis','ai','art','email','tel'];
+let editingId = null;
+function toast(m, t) { const e = document.getElementById('toast'); e.textContent = m; e.className = t; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 2500); }
+function resetForm() {
+    editingId = null;
+    FIELDS.forEach(f => document.getElementById('c-' + f).value = '');
+    document.getElementById('form-title').textContent = 'Ajouter un client';
+    document.getElementById('c-save').textContent = 'Ajouter';
+    document.getElementById('c-cancel').style.display = 'none';
+}
+function editClient(btn) {
+    const d = btn.closest('tr').dataset;
+    editingId = d.id;
+    FIELDS.forEach(f => document.getElementById('c-' + f).value = d[f] || '');
+    document.getElementById('form-title').textContent = 'Modifier le client';
+    document.getElementById('c-save').textContent = 'Enregistrer';
+    document.getElementById('c-cancel').style.display = '';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+}
+async function saveClient() {
+    const body = {};
+    FIELDS.forEach(f => body[f] = document.getElementById('c-' + f).value);
+    if (!body.name.trim()) { toast('Nom du client requis', 'error'); return; }
+    const res = await fetch(editingId ? '/api/clients/' + editingId : '/api/clients', {
+        method: editingId ? 'PUT' : 'POST',
+        headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+    });
+    if (res.ok) location.reload(); else toast("Erreur lors de l'enregistrement", 'error');
+}
+async function deleteClient(id) {
+    if (!confirm('Supprimer ce client ?')) return;
+    const res = await fetch('/api/clients/' + id, {method: 'DELETE'});
+    if (res.ok) location.reload(); else toast('Erreur lors de la suppression', 'error');
+}
+function filterRows() {
+    const q = document.getElementById('search').value.toLowerCase();
+    document.querySelectorAll('#rows tr[data-id]').forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+</script>
+</body>
+</html>
