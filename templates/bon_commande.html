@@ -44,13 +44,22 @@
 
         /* ── Toolbar ── */
         .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
             text-align: center;
             margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(209, 213, 219, .95);
+            backdrop-filter: blur(6px);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, .12);
             display: flex;
             justify-content: center;
             gap: 10px;
             flex-wrap: wrap;
         }
+        @media print { .toolbar { display: none !important; } }
 
         .btn {
             padding: 10px 22px;
@@ -453,6 +462,7 @@
 <div id="toast"></div>
 
 {% include "_client_picker.html" %}
+{% include "_service_picker.html" %}
 <div class="invoice">
 
     <!-- ══ HEADER ══ -->
@@ -648,6 +658,17 @@ function addLigne(desc = '', qty = '', pu = '', taxes = 'TVA 19%') {
     tr.querySelector('.mont-val').textContent = fmt(qtyVal * puVal);
     calculateTotals();
 }
+
+window.addServiceToDocument = function (svc) {
+    document.querySelectorAll('#lignes-body tr').forEach(tr => {
+        const empty = !tr.querySelector('textarea')?.value.trim()
+            && !tr.querySelector('.pu-input')?.value
+            && !tr.querySelector('.qty-input')?.value;
+        if (empty) tr.remove();
+    });
+    const description = svc.name + (svc.details ? '\n' + svc.details : '');
+    addLigne(description, 1, parseFloat(svc.price) || '', 'TVA 19%');
+};
 
 function removeRow(btn) {
     btn.closest('tr').remove();
