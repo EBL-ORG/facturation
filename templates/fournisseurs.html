@@ -26,8 +26,8 @@
     .span2 { grid-column: span 2; } .span3 { grid-column: 1 / -1; }
     .field { display: flex; flex-direction: column; gap: 5px; }
     .field span { font-size: 10.5px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: .4px; }
-    input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 7px; font: inherit; outline: none; }
-    input:focus, textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+    input, textarea, select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 7px; font: inherit; outline: none; background: #fff; }
+    input:focus, textarea:focus, select:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
     textarea { resize: vertical; min-height: 42px; }
     .actions { margin-top: 16px; display: flex; gap: 8px; }
     .btn { border: none; border-radius: 7px; padding: 10px 18px; font-weight: bold; cursor: pointer; font-size: 13px; }
@@ -35,6 +35,8 @@
     .btn-ghost { background: #f1f5f9; color: #334155; }
     .btn-del { background: #fef2f2; color: #dc2626; padding: 7px 12px; }
     .btn-edit { background: #eff6ff; color: #1d4ed8; padding: 7px 12px; }
+    .btn-small { background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .btn-small:hover { background: #eef2f7; }
     .search { max-width: 260px; }
     .tbl-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
@@ -42,6 +44,12 @@
     td { padding: 11px 14px; border-top: 1px solid #eef2f7; vertical-align: top; }
     td.num, th.num { text-align: right; white-space: nowrap; }
     td.act { text-align: right; white-space: nowrap; }
+    tr.invoice-details > td { padding: 0; border-top: none; background: #f8fafc; }
+    .invoice-panel { padding: 14px 18px 18px 48px; }
+    .invoice-panel-head { font-weight: bold; color: #1e3a5f; font-size: 12px; margin-bottom: 10px; }
+    .inner-table { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+    .inner-table th { background: #f1f5f9; padding: 8px 12px; }
+    .inner-table td { padding: 8px 12px; }
     .muted { color: #6b7280; font-size: 12px; }
     .badge { display: inline-block; border-radius: 20px; padding: 3px 9px; font-size: 10.5px; font-weight: bold; white-space: nowrap; }
     .badge.paid { background: #dcfce7; color: #15803d; }
@@ -49,17 +57,18 @@
     .badge.due { background: #fee2e2; color: #b91c1c; }
     .badge.none { background: #f1f5f9; color: #64748b; }
     .empty { text-align: center; color: #9ca3af; padding: 30px; }
+    .empty-small { color: #9ca3af; padding: 12px; text-align: center; }
     #toast { display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); padding:12px 28px; border-radius:6px; font-weight:bold; color:#fff; z-index:1000; }
     #toast.success { background:#16a34a; } #toast.error { background:#dc2626; }
     @media (max-width: 900px) { .stats { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-    @media (max-width: 760px) { .form-grid { grid-template-columns: 1fr; } .span2 { grid-column: auto; } .container { padding-top: 64px; } }
+    @media (max-width: 760px) { .form-grid { grid-template-columns: 1fr; } .span2 { grid-column: auto; } .container { padding-top: 64px; } .invoice-panel { padding-left: 18px; } }
 </style>
 </head>
 <body>
 {% include "_sidebar.html" %}
 <main class="container">
     <h1>Fournisseurs</h1>
-    <p class="sub">Suivez les factures fournisseurs, les montants payés et le reste à payer.</p>
+    <p class="sub">Ajoutez vos fournisseurs, puis enregistrez leurs factures pour suivre le payé et le reste à payer de chacun.</p>
 
     <div class="stats">
         <div class="stat">
@@ -82,23 +91,47 @@
     </div>
 
     <div class="card">
-        <div class="card-head"><span id="form-title">Ajouter un fournisseur</span></div>
+        <div class="card-head"><span id="supplier-form-title">Ajouter un fournisseur</span></div>
         <div class="card-body">
             <div class="form-grid">
-                <label class="field span2"><span>Fournisseur / Société *</span><input id="f-name" placeholder="ex: Société ABC"></label>
-                <label class="field"><span>Contact (nom)</span><input id="f-contact"></label>
-                <label class="field"><span>Téléphone</span><input id="f-phone"></label>
-                <label class="field"><span>E-mail</span><input id="f-email" type="email"></label>
-                <label class="field"><span>N° facture fournisseur</span><input id="f-invoice_ref"></label>
-                <label class="field span2"><span>Adresse</span><input id="f-address"></label>
-                <label class="field"><span>Date facture</span><input id="f-invoice_date" type="date"></label>
-                <label class="field"><span>Montant facture (DA)</span><input id="f-invoice_amount" type="number" min="0" step="0.01" value="0"></label>
-                <label class="field"><span>Montant payé (DA)</span><input id="f-paid_amount" type="number" min="0" step="0.01" value="0"></label>
-                <label class="field span3"><span>Notes</span><textarea id="f-notes" rows="2" placeholder="Informations complémentaires"></textarea></label>
+                <label class="field span2"><span>Fournisseur / Société *</span><input id="s-name" placeholder="ex: Société ABC"></label>
+                <label class="field"><span>Contact (nom)</span><input id="s-contact"></label>
+                <label class="field"><span>Téléphone</span><input id="s-phone"></label>
+                <label class="field"><span>E-mail</span><input id="s-email" type="email"></label>
+                <label class="field"><span>Adresse</span><input id="s-address"></label>
+                <label class="field span3"><span>Notes</span><textarea id="s-notes" rows="2" placeholder="Informations complémentaires"></textarea></label>
             </div>
             <div class="actions">
-                <button class="btn btn-primary" id="f-save" onclick="saveSupplier()">Ajouter</button>
-                <button class="btn btn-ghost" id="f-cancel" onclick="resetForm()" style="display:none">Annuler</button>
+                <button class="btn btn-primary" id="s-save" onclick="saveSupplier()">Ajouter</button>
+                <button class="btn btn-ghost" id="s-cancel" onclick="resetSupplierForm()" style="display:none">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="invoice-card">
+        <div class="card-head">
+            <span id="invoice-form-title">Ajouter une facture fournisseur</span>
+            {% if not suppliers %}<span class="muted">Ajoutez d'abord un fournisseur</span>{% endif %}
+        </div>
+        <div class="card-body">
+            <div class="form-grid">
+                <label class="field span2"><span>Fournisseur *</span>
+                    <select id="i-supplier_id" {% if not suppliers %}disabled{% endif %}>
+                        <option value="">— Choisir un fournisseur —</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="field"><span>N° facture</span><input id="i-invoice_ref" placeholder="ex: FA-2026-001"></label>
+                <label class="field"><span>Date facture</span><input id="i-invoice_date" type="date"></label>
+                <label class="field"><span>Montant facture (DA)</span><input id="i-amount" type="number" min="0" step="0.01" value="0"></label>
+                <label class="field"><span>Montant payé (DA)</span><input id="i-paid_amount" type="number" min="0" step="0.01" value="0"></label>
+                <label class="field span3"><span>Notes</span><textarea id="i-notes" rows="2" placeholder="Informations complémentaires"></textarea></label>
+            </div>
+            <div class="actions">
+                <button class="btn btn-primary" id="i-save" onclick="saveInvoice()">Ajouter la facture</button>
+                <button class="btn btn-ghost" id="i-cancel" onclick="resetInvoiceForm()" style="display:none">Annuler</button>
             </div>
         </div>
     </div>
@@ -114,8 +147,8 @@
                 <tr>
                     <th>Fournisseur</th>
                     <th>Contact</th>
-                    <th>Facture</th>
-                    <th class="num">Montant</th>
+                    <th class="num">Factures</th>
+                    <th class="num">Total facturé</th>
                     <th class="num">Payé</th>
                     <th class="num">Reste</th>
                     <th>Statut</th>
@@ -124,13 +157,13 @@
             </thead>
             <tbody id="rows">
             {% for s in suppliers %}
-                {% set total = s.invoice_amount or 0 %}
-                {% set paid = s.paid_amount or 0 %}
+                {% set total = s.invoice_total or 0 %}
+                {% set paid = s.paid_total or 0 %}
                 {% set rest = total - paid %}
                 {% if rest < 0 %}{% set rest = 0 %}{% endif %}
                 {% set pct = (paid / total * 100) if total > 0 else 0 %}
                 {% if pct > 100 %}{% set pct = 100 %}{% endif %}
-                <tr data-id="{{ s.id }}" {% for k in ['name','contact','phone','email','address','invoice_ref','invoice_date','invoice_amount','paid_amount','notes'] %}data-{{ k }}="{{ s[k]|e }}" {% endfor %}>
+                <tr data-id="{{ s.id }}" data-name="{{ s.name|e }}" data-contact="{{ s.contact|e }}" data-phone="{{ s.phone|e }}" data-email="{{ s.email|e }}" data-address="{{ s.address|e }}" data-notes="{{ s.notes|e }}">
                     <td>
                         <b>{{ s.name }}</b>
                         {% if s.notes %}<div class="muted">{{ s.notes }}</div>{% endif %}
@@ -140,15 +173,12 @@
                         {% if s.phone %}<div class="muted">{{ s.phone }}</div>{% endif %}
                         {% if s.email %}<div class="muted">{{ s.email }}</div>{% endif %}
                     </td>
-                    <td>
-                        {{ s.invoice_ref or '—' }}
-                        {% if s.invoice_date %}<div class="muted">{{ s.invoice_date }}</div>{% endif %}
-                    </td>
+                    <td class="num">{{ s.invoice_count }}</td>
                     <td class="num">{{ "{:,.2f}".format(total).replace(",", " ").replace(".", ",") }} DA</td>
                     <td class="num">{{ "{:,.2f}".format(paid).replace(",", " ").replace(".", ",") }} DA</td>
                     <td class="num"><b>{{ "{:,.2f}".format(rest).replace(",", " ").replace(".", ",") }} DA</b></td>
                     <td>
-                        {% if total <= 0 %}
+                        {% if s.invoice_count == 0 %}
                             <span class="badge none">Sans facture</span>
                         {% elif rest <= 0 %}
                             <span class="badge paid">Payé</span>
@@ -159,8 +189,63 @@
                         {% endif %}
                     </td>
                     <td class="act">
+                        <button class="btn-small" onclick="toggleInvoices({{ s.id }})">Factures ({{ s.invoice_count }})</button>
                         <button class="btn btn-edit" onclick="editSupplier(this)">Modifier</button>
                         {% if current_user.role == 'admin' %}<button class="btn btn-del" onclick="deleteSupplier({{ s.id }})">&#10005;</button>{% endif %}
+                    </td>
+                </tr>
+                <tr class="invoice-details" data-parent="{{ s.id }}" hidden>
+                    <td colspan="8">
+                        <div class="invoice-panel">
+                            <div class="invoice-panel-head">Factures de {{ s.name }}</div>
+                            {% if s.invoices %}
+                            <table class="inner-table">
+                                <thead>
+                                    <tr>
+                                        <th>N° facture</th>
+                                        <th>Date</th>
+                                        <th class="num">Montant</th>
+                                        <th class="num">Payé</th>
+                                        <th class="num">Reste</th>
+                                        <th>Statut</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for inv in s.invoices %}
+                                    {% set inv_total = inv.amount or 0 %}
+                                    {% set inv_paid = inv.paid_amount or 0 %}
+                                    {% set inv_rest = inv_total - inv_paid %}
+                                    {% if inv_rest < 0 %}{% set inv_rest = 0 %}{% endif %}
+                                    <tr data-id="{{ inv.id }}" data-supplier_id="{{ inv.supplier_id }}" data-invoice_ref="{{ inv.invoice_ref|e }}" data-invoice_date="{{ inv.invoice_date|e }}" data-amount="{{ inv.amount }}" data-paid_amount="{{ inv.paid_amount }}" data-notes="{{ inv.notes|e }}">
+                                        <td><b>{{ inv.invoice_ref or '—' }}</b>{% if inv.notes %}<div class="muted">{{ inv.notes }}</div>{% endif %}</td>
+                                        <td>{{ inv.invoice_date or '—' }}</td>
+                                        <td class="num">{{ "{:,.2f}".format(inv_total).replace(",", " ").replace(".", ",") }} DA</td>
+                                        <td class="num">{{ "{:,.2f}".format(inv_paid).replace(",", " ").replace(".", ",") }} DA</td>
+                                        <td class="num"><b>{{ "{:,.2f}".format(inv_rest).replace(",", " ").replace(".", ",") }} DA</b></td>
+                                        <td>
+                                            {% if inv_total <= 0 %}
+                                                <span class="badge none">Sans montant</span>
+                                            {% elif inv_rest <= 0 %}
+                                                <span class="badge paid">Payé</span>
+                                            {% elif inv_paid > 0 %}
+                                                <span class="badge partial">Partiel</span>
+                                            {% else %}
+                                                <span class="badge due">À payer</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="act">
+                                            <button class="btn btn-edit" onclick="editInvoice(this)">Modifier</button>
+                                            {% if current_user.role == 'admin' %}<button class="btn btn-del" onclick="deleteInvoice({{ inv.id }})">&#10005;</button>{% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                            {% else %}
+                            <div class="empty-small">Aucune facture pour ce fournisseur.</div>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
             {% else %}
@@ -173,9 +258,11 @@
 </main>
 <div id="toast"></div>
 <script>
-const FIELDS = ['name','contact','phone','email','address','invoice_ref','invoice_date','invoice_amount','paid_amount','notes'];
-const MONEY_FIELDS = ['invoice_amount','paid_amount'];
-let editingId = null;
+const SUPPLIER_FIELDS = ['name', 'contact', 'phone', 'email', 'address', 'notes'];
+const INVOICE_FIELDS = ['supplier_id', 'invoice_ref', 'invoice_date', 'amount', 'paid_amount', 'notes'];
+const MONEY_FIELDS = ['amount', 'paid_amount'];
+let editingSupplierId = null;
+let editingInvoiceId = null;
 
 function toast(m, t) {
     const e = document.getElementById('toast');
@@ -185,40 +272,30 @@ function toast(m, t) {
     setTimeout(() => e.style.display = 'none', 2500);
 }
 
-function resetForm() {
-    editingId = null;
-    FIELDS.forEach(f => {
-        const input = document.getElementById('f-' + f);
-        input.value = MONEY_FIELDS.includes(f) ? '0' : '';
-    });
-    document.getElementById('form-title').textContent = 'Ajouter un fournisseur';
-    document.getElementById('f-save').textContent = 'Ajouter';
-    document.getElementById('f-cancel').style.display = 'none';
+function resetSupplierForm() {
+    editingSupplierId = null;
+    SUPPLIER_FIELDS.forEach(f => document.getElementById('s-' + f).value = '');
+    document.getElementById('supplier-form-title').textContent = 'Ajouter un fournisseur';
+    document.getElementById('s-save').textContent = 'Ajouter';
+    document.getElementById('s-cancel').style.display = 'none';
 }
 
 function editSupplier(btn) {
     const d = btn.closest('tr').dataset;
-    editingId = d.id;
-    FIELDS.forEach(f => document.getElementById('f-' + f).value = d[f] || '');
-    document.getElementById('form-title').textContent = 'Modifier le fournisseur';
-    document.getElementById('f-save').textContent = 'Enregistrer';
-    document.getElementById('f-cancel').style.display = '';
+    editingSupplierId = d.id;
+    SUPPLIER_FIELDS.forEach(f => document.getElementById('s-' + f).value = d[f] || '');
+    document.getElementById('supplier-form-title').textContent = 'Modifier le fournisseur';
+    document.getElementById('s-save').textContent = 'Enregistrer';
+    document.getElementById('s-cancel').style.display = '';
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
 async function saveSupplier() {
     const body = {};
-    FIELDS.forEach(f => {
-        const value = document.getElementById('f-' + f).value;
-        body[f] = MONEY_FIELDS.includes(f) ? (parseFloat(value) || 0) : value;
-    });
+    SUPPLIER_FIELDS.forEach(f => body[f] = document.getElementById('s-' + f).value);
     if (!body.name.trim()) { toast('Nom du fournisseur requis', 'error'); return; }
-    if (body.paid_amount > body.invoice_amount && body.invoice_amount > 0) {
-        toast('Le montant payé dépasse le montant de la facture', 'error');
-        return;
-    }
-    const res = await fetch(editingId ? '/api/suppliers/' + editingId : '/api/suppliers', {
-        method: editingId ? 'PUT' : 'POST',
+    const res = await fetch(editingSupplierId ? '/api/suppliers/' + editingSupplierId : '/api/suppliers', {
+        method: editingSupplierId ? 'PUT' : 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body)
     });
@@ -226,15 +303,76 @@ async function saveSupplier() {
 }
 
 async function deleteSupplier(id) {
-    if (!confirm('Supprimer ce fournisseur ?')) return;
+    if (!confirm('Supprimer ce fournisseur et toutes ses factures ?')) return;
     const res = await fetch('/api/suppliers/' + id, {method: 'DELETE'});
     if (res.ok) location.reload(); else toast('Erreur lors de la suppression', 'error');
 }
 
+function resetInvoiceForm() {
+    editingInvoiceId = null;
+    document.getElementById('i-supplier_id').value = '';
+    INVOICE_FIELDS.filter(f => f !== 'supplier_id').forEach(f => {
+        document.getElementById('i-' + f).value = MONEY_FIELDS.includes(f) ? '0' : '';
+    });
+    document.getElementById('invoice-form-title').textContent = 'Ajouter une facture fournisseur';
+    document.getElementById('i-save').textContent = 'Ajouter la facture';
+    document.getElementById('i-cancel').style.display = 'none';
+}
+
+function editInvoice(btn) {
+    const d = btn.closest('tr').dataset;
+    editingInvoiceId = d.id;
+    INVOICE_FIELDS.forEach(f => {
+        document.getElementById('i-' + f).value = d[f] || '';
+    });
+    document.getElementById('invoice-form-title').textContent = 'Modifier la facture fournisseur';
+    document.getElementById('i-save').textContent = 'Enregistrer';
+    document.getElementById('i-cancel').style.display = '';
+    document.getElementById('invoice-card').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+async function saveInvoice() {
+    const body = {};
+    INVOICE_FIELDS.forEach(f => {
+        const value = document.getElementById('i-' + f).value;
+        if (f === 'supplier_id') body[f] = parseInt(value, 10) || 0;
+        else if (MONEY_FIELDS.includes(f)) body[f] = parseFloat(value) || 0;
+        else body[f] = value;
+    });
+    if (!body.supplier_id) { toast('Choisissez un fournisseur', 'error'); return; }
+    if (body.paid_amount > body.amount && body.amount > 0) {
+        toast('Le montant payé dépasse le montant de la facture', 'error');
+        return;
+    }
+    const res = await fetch(editingInvoiceId ? '/api/supplier-invoices/' + editingInvoiceId : '/api/supplier-invoices', {
+        method: editingInvoiceId ? 'PUT' : 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    });
+    if (res.ok) location.reload(); else toast("Erreur lors de l'enregistrement de la facture", 'error');
+}
+
+async function deleteInvoice(id) {
+    if (!confirm('Supprimer cette facture fournisseur ?')) return;
+    const res = await fetch('/api/supplier-invoices/' + id, {method: 'DELETE'});
+    if (res.ok) location.reload(); else toast('Erreur lors de la suppression', 'error');
+}
+
+function toggleInvoices(id) {
+    const row = document.querySelector('tr.invoice-details[data-parent="' + id + '"]');
+    if (row) row.hidden = !row.hidden;
+}
+
 function filterRows() {
     const q = document.getElementById('search').value.toLowerCase();
-    document.querySelectorAll('#rows tr[data-id]').forEach(tr => {
-        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+    document.querySelectorAll('#rows > tr[data-id]').forEach(tr => {
+        const visible = tr.textContent.toLowerCase().includes(q);
+        tr.style.display = visible ? '' : 'none';
+        const details = tr.nextElementSibling;
+        if (details && details.classList.contains('invoice-details')) {
+            details.style.display = visible ? '' : 'none';
+            if (!visible) details.hidden = true;
+        }
     });
 }
 </script>

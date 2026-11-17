@@ -563,6 +563,7 @@ def migrate_db():
         ("company_settings", "logo_footer_size INTEGER DEFAULT 120"),
         ("company_settings", "billed_text_size INTEGER DEFAULT 10"),
         ("services", "reference TEXT DEFAULT ''"),
+        ("suppliers", "legacy_invoice_migrated INTEGER DEFAULT 0"),
     ]
     pk = "SERIAL PRIMARY KEY" if USE_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
     try:
@@ -616,6 +617,22 @@ def migrate_db():
         conn.commit()
     except Exception:
         conn.rollback()
+    try:
+        conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS supplier_invoices (
+                id          {pk},
+                supplier_id INTEGER NOT NULL,
+                invoice_ref TEXT DEFAULT '',
+                invoice_date TEXT DEFAULT '',
+                amount      REAL DEFAULT 0,
+                paid_amount REAL DEFAULT 0,
+                notes       TEXT DEFAULT '',
+                created_at  TEXT
+            )
+        """)
+        conn.commit()
+    except Exception:
+        conn.rollback()
     for table, col_def in migrations:
         try:
             if USE_POSTGRES:
@@ -625,6 +642,30 @@ def migrate_db():
             conn.commit()
         except Exception:
             conn.rollback()
+    try:
+        legacy_suppliers = conn.execute(
+            "SELECT id, invoice_ref, invoice_date, invoice_amount, paid_amount, notes "
+            "FROM suppliers WHERE legacy_invoice_migrated = 0"
+        ).fetchall()
+        for supplier in legacy_suppliers:
+            amount = float(supplier["invoice_amount"] or 0)
+            paid = float(supplier["paid_amount"] or 0)
+            ref = (supplier["invoice_ref"] or "").strip()
+            if ref or amount or paid:
+                conn.insert(
+                    "INSERT INTO supplier_invoices "
+                    "(supplier_id, invoice_ref, invoice_date, amount, paid_amount, notes) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (supplier["id"], ref, supplier["invoice_date"] or "",
+                     max(amount, 0), max(paid, 0), supplier["notes"] or "")
+                )
+            conn.execute(
+                "UPDATE suppliers SET legacy_invoice_migrated = 1 WHERE id = ?",
+                (supplier["id"],)
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
     conn.close()
 
 
@@ -1217,14 +1258,14 @@ async def dashboard(request: Request):
         "montant_ht, montant_ttc, created_by, created_at "
         "FROM bons_versement ORDER BY id DESC"
     ).fetchall()
-    supplier_rows = conn.execute(
-        "SELECT id, name, invoice_ref, invoice_date, invoice_amount, paid_amount "
-        "FROM suppliers ORDER BY name"
-    ).fetchall()
+    supplier_totals = conn.execute(
+        "SELECT COALESCE(SUM(amount), 0) AS total, "
+        "COALESCE(SUM(paid_amount), 0) AS paid FROM supplier_invoices"
+    ).fetchone()
     conn.close()
 
-    supplier_total = sum(float(r["invoice_amount"] or 0) for r in supplier_rows)
-    supplier_paid = sum(float(r["paid_amount"] or 0) for r in supplier_rows)
+    supplier_total = float(supplier_totals["total"] or 0)
+    supplier_paid = float(supplier_totals["paid"] or 0)
     supplier_remaining = max(supplier_total - supplier_paid, 0)
     supplier_paid_pct = min((supplier_paid / supplier_total * 100), 100) if supplier_total else 0
 
@@ -1234,7 +1275,6 @@ async def dashboard(request: Request):
         "devis_list":          devis_rows,
         "bons_commande":       bc_rows,
         "bons_versement":      bv_rows,
-        "suppliers":           supplier_rows,
         "supplier_total":      round(supplier_total, 2),
         "supplier_paid":       round(supplier_paid, 2),
         "supplier_remaining":  round(supplier_remaining, 2),
@@ -1347,9 +1387,9 @@ async def api_client_delete(request: Request, client_id: int):
 
 # ── Fournisseurs ───────────────────────────────────────────────────────────
 
-SUPPLIER_FIELDS = [
-    "name", "contact", "phone", "email", "address", "invoice_ref",
-    "invoice_date", "invoice_amount", "paid_amount", "notes",
+SUPPLIER_FIELDS = ["name", "contact", "phone", "email", "address", "notes"]
+SUPPLIER_INVOICE_FIELDS = [
+    "supplier_id", "invoice_ref", "invoice_date", "amount", "paid_amount", "notes",
 ]
 
 
@@ -1359,9 +1399,14 @@ class SupplierItem(BaseModel):
     phone: str = ""
     email: str = ""
     address: str = ""
+    notes: str = ""
+
+
+class SupplierInvoiceItem(BaseModel):
+    supplier_id: int
     invoice_ref: str = ""
     invoice_date: str = ""
-    invoice_amount: float = 0
+    amount: float = 0
     paid_amount: float = 0
     notes: str = ""
 
@@ -1369,17 +1414,42 @@ class SupplierItem(BaseModel):
 def _list_suppliers() -> list:
     conn = get_db()
     rows = conn.execute(
-        "SELECT id, " + ", ".join(SUPPLIER_FIELDS) + " FROM suppliers ORDER BY name"
+        "SELECT s.id, s.name, s.contact, s.phone, s.email, s.address, s.notes, "
+        "COUNT(i.id) AS invoice_count, "
+        "COALESCE(SUM(i.amount), 0) AS invoice_total, "
+        "COALESCE(SUM(i.paid_amount), 0) AS paid_total "
+        "FROM suppliers s LEFT JOIN supplier_invoices i ON i.supplier_id = s.id "
+        "GROUP BY s.id, s.name, s.contact, s.phone, s.email, s.address, s.notes "
+        "ORDER BY s.name"
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def _list_supplier_invoices() -> list:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT i.id, i.supplier_id, i.invoice_ref, i.invoice_date, "
+        "i.amount, i.paid_amount, i.notes, s.name AS supplier_name "
+        "FROM supplier_invoices i "
+        "JOIN suppliers s ON s.id = i.supplier_id "
+        "ORDER BY s.name, i.invoice_date DESC, i.id DESC"
     ).fetchall()
     conn.close()
     return rows
 
 
 def _supplier_values(item: SupplierItem) -> tuple:
+    return tuple(str(getattr(item, field) or "").strip() for field in SUPPLIER_FIELDS)
+
+
+def _supplier_invoice_values(item: SupplierInvoiceItem) -> tuple:
     values = []
-    for field in SUPPLIER_FIELDS:
+    for field in SUPPLIER_INVOICE_FIELDS:
         value = getattr(item, field)
-        if field in ("invoice_amount", "paid_amount"):
+        if field == "supplier_id":
+            value = int(value)
+        elif field in ("amount", "paid_amount"):
             value = max(float(value or 0), 0)
         else:
             value = str(value or "").strip()
@@ -1387,13 +1457,26 @@ def _supplier_values(item: SupplierItem) -> tuple:
     return tuple(values)
 
 
+def _supplier_exists(conn, supplier_id: int) -> bool:
+    return bool(conn.execute(
+        "SELECT id FROM suppliers WHERE id = ?", (supplier_id,)
+    ).fetchone())
+
+
 @app.get("/fournisseurs", response_class=HTMLResponse)
 async def suppliers_page(request: Request):
     if not session_user(request):
         return RedirectResponse(url="/login", status_code=302)
     suppliers = _list_suppliers()
-    total = sum(float(s["invoice_amount"] or 0) for s in suppliers)
-    paid = sum(float(s["paid_amount"] or 0) for s in suppliers)
+    invoices = _list_supplier_invoices()
+    invoices_by_supplier = {}
+    for invoice in invoices:
+        invoices_by_supplier.setdefault(invoice["supplier_id"], []).append(invoice)
+    for supplier in suppliers:
+        supplier["invoices"] = invoices_by_supplier.get(supplier["id"], [])
+
+    total = sum(float(s["invoice_total"] or 0) for s in suppliers)
+    paid = sum(float(s["paid_total"] or 0) for s in suppliers)
     remaining = max(total - paid, 0)
     paid_pct = min((paid / total * 100), 100) if total else 0
     return render(request, "fournisseurs.html", {
@@ -1448,7 +1531,63 @@ async def api_supplier_delete(request: Request, supplier_id: int):
     if not user or user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
     conn = get_db()
+    conn.execute("DELETE FROM supplier_invoices WHERE supplier_id=?", (supplier_id,))
     conn.execute("DELETE FROM suppliers WHERE id=?", (supplier_id,))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
+@app.get("/api/supplier-invoices")
+async def api_supplier_invoices(request: Request):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    return _list_supplier_invoices()
+
+
+@app.post("/api/supplier-invoices")
+async def api_supplier_invoice_create(request: Request, item: SupplierInvoiceItem):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    conn = get_db()
+    if not _supplier_exists(conn, item.supplier_id):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Fournisseur introuvable")
+    cur = conn.insert(
+        "INSERT INTO supplier_invoices (" + ", ".join(SUPPLIER_INVOICE_FIELDS)
+        + ", created_at) VALUES (" + ",".join("?" * len(SUPPLIER_INVOICE_FIELDS))
+        + ",?)",
+        _supplier_invoice_values(item) + (datetime.now().isoformat(timespec="seconds"),))
+    new_id = cur.lastrowid
+    conn.commit(); conn.close()
+    return {"id": new_id}
+
+
+@app.put("/api/supplier-invoices/{invoice_id}")
+async def api_supplier_invoice_update(
+    request: Request, invoice_id: int, item: SupplierInvoiceItem
+):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    conn = get_db()
+    if not _supplier_exists(conn, item.supplier_id):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Fournisseur introuvable")
+    conn.execute(
+        "UPDATE supplier_invoices SET "
+        + ", ".join(f"{k}=?" for k in SUPPLIER_INVOICE_FIELDS)
+        + " WHERE id=?",
+        _supplier_invoice_values(item) + (invoice_id,))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
+@app.delete("/api/supplier-invoices/{invoice_id}")
+async def api_supplier_invoice_delete(request: Request, invoice_id: int):
+    user = session_user(request)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    conn = get_db()
+    conn.execute("DELETE FROM supplier_invoices WHERE id=?", (invoice_id,))
     conn.commit(); conn.close()
     return {"ok": True}
 
