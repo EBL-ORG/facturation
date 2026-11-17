@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fournisseurs - {{ company.name }}</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; background: #eef2f7; color: #1f2937; min-height: 100vh; }
+    .container { max-width: 1180px; margin: 0 auto; padding: 28px 24px 70px; }
+    h1 { font-size: 22px; color: #1e3a5f; margin-bottom: 4px; }
+    .sub { color: #6b7280; margin-bottom: 22px; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+    .stat { background: #fff; border-radius: 10px; padding: 15px 18px; box-shadow: 0 2px 10px rgba(15,23,42,.08); border-left: 4px solid #2563eb; }
+    .stat.orange { border-left-color: #d97706; }
+    .stat.green { border-left-color: #16a34a; }
+    .stat.red { border-left-color: #dc2626; }
+    .stat-label { font-size: 10px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+    .stat-value { font-size: 18px; font-weight: bold; color: #1e293b; }
+    .progress { height: 6px; background: #e5e7eb; border-radius: 99px; margin-top: 8px; overflow: hidden; }
+    .progress > span { display: block; height: 100%; background: #16a34a; border-radius: 99px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(15,23,42,.08); margin-bottom: 22px; overflow: hidden; }
+    .card-head { padding: 16px 22px; border-bottom: 1px solid #eef2f7; font-weight: bold; color: #1e3a5f; font-size: 15px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .card-body { padding: 20px 22px; }
+    .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px 16px; }
+    .span2 { grid-column: span 2; } .span3 { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field span { font-size: 10.5px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: .4px; }
+    input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 7px; font: inherit; outline: none; }
+    input:focus, textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+    textarea { resize: vertical; min-height: 42px; }
+    .actions { margin-top: 16px; display: flex; gap: 8px; }
+    .btn { border: none; border-radius: 7px; padding: 10px 18px; font-weight: bold; cursor: pointer; font-size: 13px; }
+    .btn-primary { background: #2563eb; color: #fff; } .btn-primary:hover { background: #1d4ed8; }
+    .btn-ghost { background: #f1f5f9; color: #334155; }
+    .btn-del { background: #fef2f2; color: #dc2626; padding: 7px 12px; }
+    .btn-edit { background: #eff6ff; color: #1d4ed8; padding: 7px 12px; }
+    .search { max-width: 260px; }
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: #6b7280; padding: 10px 14px; background: #f8fafc; white-space: nowrap; }
+    td { padding: 11px 14px; border-top: 1px solid #eef2f7; vertical-align: top; }
+    td.num, th.num { text-align: right; white-space: nowrap; }
+    td.act { text-align: right; white-space: nowrap; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .badge { display: inline-block; border-radius: 20px; padding: 3px 9px; font-size: 10.5px; font-weight: bold; white-space: nowrap; }
+    .badge.paid { background: #dcfce7; color: #15803d; }
+    .badge.partial { background: #ffedd5; color: #c2410c; }
+    .badge.due { background: #fee2e2; color: #b91c1c; }
+    .badge.none { background: #f1f5f9; color: #64748b; }
+    .empty { text-align: center; color: #9ca3af; padding: 30px; }
+    #toast { display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); padding:12px 28px; border-radius:6px; font-weight:bold; color:#fff; z-index:1000; }
+    #toast.success { background:#16a34a; } #toast.error { background:#dc2626; }
+    @media (max-width: 900px) { .stats { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 760px) { .form-grid { grid-template-columns: 1fr; } .span2 { grid-column: auto; } .container { padding-top: 64px; } }
+</style>
+</head>
+<body>
+{% include "_sidebar.html" %}
+<main class="container">
+    <h1>Fournisseurs</h1>
+    <p class="sub">Suivez les factures fournisseurs, les montants payés et le reste à payer.</p>
+
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-label">Fournisseurs</div>
+            <div class="stat-value">{{ suppliers|length }}</div>
+        </div>
+        <div class="stat orange">
+            <div class="stat-label">Total factures fournisseurs</div>
+            <div class="stat-value">{{ "{:,.2f}".format(supplier_total).replace(",", " ").replace(".", ",") }} DA</div>
+        </div>
+        <div class="stat green">
+            <div class="stat-label">Payé</div>
+            <div class="stat-value">{{ "{:,.2f}".format(supplier_paid).replace(",", " ").replace(".", ",") }} DA</div>
+        </div>
+        <div class="stat red">
+            <div class="stat-label">Reste à payer · {{ ("%.1f"|format(supplier_paid_pct)).replace(".", ",") }} % payé</div>
+            <div class="stat-value">{{ "{:,.2f}".format(supplier_remaining).replace(",", " ").replace(".", ",") }} DA</div>
+            <div class="progress"><span style="width: {{ supplier_paid_pct }}%"></span></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head"><span id="form-title">Ajouter un fournisseur</span></div>
+        <div class="card-body">
+            <div class="form-grid">
+                <label class="field span2"><span>Fournisseur / Société *</span><input id="f-name" placeholder="ex: Société ABC"></label>
+                <label class="field"><span>Contact (nom)</span><input id="f-contact"></label>
+                <label class="field"><span>Téléphone</span><input id="f-phone"></label>
+                <label class="field"><span>E-mail</span><input id="f-email" type="email"></label>
+                <label class="field"><span>N° facture fournisseur</span><input id="f-invoice_ref"></label>
+                <label class="field span2"><span>Adresse</span><input id="f-address"></label>
+                <label class="field"><span>Date facture</span><input id="f-invoice_date" type="date"></label>
+                <label class="field"><span>Montant facture (DA)</span><input id="f-invoice_amount" type="number" min="0" step="0.01" value="0"></label>
+                <label class="field"><span>Montant payé (DA)</span><input id="f-paid_amount" type="number" min="0" step="0.01" value="0"></label>
+                <label class="field span3"><span>Notes</span><textarea id="f-notes" rows="2" placeholder="Informations complémentaires"></textarea></label>
+            </div>
+            <div class="actions">
+                <button class="btn btn-primary" id="f-save" onclick="saveSupplier()">Ajouter</button>
+                <button class="btn btn-ghost" id="f-cancel" onclick="resetForm()" style="display:none">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <span>Liste des fournisseurs <span class="muted">({{ suppliers|length }})</span></span>
+            <input class="search" id="search" placeholder="Rechercher…" oninput="filterRows()">
+        </div>
+        <div class="tbl-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fournisseur</th>
+                    <th>Contact</th>
+                    <th>Facture</th>
+                    <th class="num">Montant</th>
+                    <th class="num">Payé</th>
+                    <th class="num">Reste</th>
+                    <th>Statut</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="rows">
+            {% for s in suppliers %}
+                {% set total = s.invoice_amount or 0 %}
+                {% set paid = s.paid_amount or 0 %}
+                {% set rest = total - paid %}
+                {% if rest < 0 %}{% set rest = 0 %}{% endif %}
+                {% set pct = (paid / total * 100) if total > 0 else 0 %}
+                {% if pct > 100 %}{% set pct = 100 %}{% endif %}
+                <tr data-id="{{ s.id }}" {% for k in ['name','contact','phone','email','address','invoice_ref','invoice_date','invoice_amount','paid_amount','notes'] %}data-{{ k }}="{{ s[k]|e }}" {% endfor %}>
+                    <td>
+                        <b>{{ s.name }}</b>
+                        {% if s.notes %}<div class="muted">{{ s.notes }}</div>{% endif %}
+                    </td>
+                    <td>
+                        {{ s.contact }}
+                        {% if s.phone %}<div class="muted">{{ s.phone }}</div>{% endif %}
+                        {% if s.email %}<div class="muted">{{ s.email }}</div>{% endif %}
+                    </td>
+                    <td>
+                        {{ s.invoice_ref or '—' }}
+                        {% if s.invoice_date %}<div class="muted">{{ s.invoice_date }}</div>{% endif %}
+                    </td>
+                    <td class="num">{{ "{:,.2f}".format(total).replace(",", " ").replace(".", ",") }} DA</td>
+                    <td class="num">{{ "{:,.2f}".format(paid).replace(",", " ").replace(".", ",") }} DA</td>
+                    <td class="num"><b>{{ "{:,.2f}".format(rest).replace(",", " ").replace(".", ",") }} DA</b></td>
+                    <td>
+                        {% if total <= 0 %}
+                            <span class="badge none">Sans facture</span>
+                        {% elif rest <= 0 %}
+                            <span class="badge paid">Payé</span>
+                        {% elif paid > 0 %}
+                            <span class="badge partial">{{ ("%.0f"|format(pct)) }} % payé</span>
+                        {% else %}
+                            <span class="badge due">À payer</span>
+                        {% endif %}
+                    </td>
+                    <td class="act">
+                        <button class="btn btn-edit" onclick="editSupplier(this)">Modifier</button>
+                        {% if current_user.role == 'admin' %}<button class="btn btn-del" onclick="deleteSupplier({{ s.id }})">&#10005;</button>{% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="8" class="empty">Aucun fournisseur pour le moment.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</main>
+<div id="toast"></div>
+<script>
+const FIELDS = ['name','contact','phone','email','address','invoice_ref','invoice_date','invoice_amount','paid_amount','notes'];
+const MONEY_FIELDS = ['invoice_amount','paid_amount'];
+let editingId = null;
+
+function toast(m, t) {
+    const e = document.getElementById('toast');
+    e.textContent = m;
+    e.className = t;
+    e.style.display = 'block';
+    setTimeout(() => e.style.display = 'none', 2500);
+}
+
+function resetForm() {
+    editingId = null;
+    FIELDS.forEach(f => {
+        const input = document.getElementById('f-' + f);
+        input.value = MONEY_FIELDS.includes(f) ? '0' : '';
+    });
+    document.getElementById('form-title').textContent = 'Ajouter un fournisseur';
+    document.getElementById('f-save').textContent = 'Ajouter';
+    document.getElementById('f-cancel').style.display = 'none';
+}
+
+function editSupplier(btn) {
+    const d = btn.closest('tr').dataset;
+    editingId = d.id;
+    FIELDS.forEach(f => document.getElementById('f-' + f).value = d[f] || '');
+    document.getElementById('form-title').textContent = 'Modifier le fournisseur';
+    document.getElementById('f-save').textContent = 'Enregistrer';
+    document.getElementById('f-cancel').style.display = '';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+async function saveSupplier() {
+    const body = {};
+    FIELDS.forEach(f => {
+        const value = document.getElementById('f-' + f).value;
+        body[f] = MONEY_FIELDS.includes(f) ? (parseFloat(value) || 0) : value;
+    });
+    if (!body.name.trim()) { toast('Nom du fournisseur requis', 'error'); return; }
+    if (body.paid_amount > body.invoice_amount && body.invoice_amount > 0) {
+        toast('Le montant payé dépasse le montant de la facture', 'error');
+        return;
+    }
+    const res = await fetch(editingId ? '/api/suppliers/' + editingId : '/api/suppliers', {
+        method: editingId ? 'PUT' : 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    });
+    if (res.ok) location.reload(); else toast("Erreur lors de l'enregistrement", 'error');
+}
+
+async function deleteSupplier(id) {
+    if (!confirm('Supprimer ce fournisseur ?')) return;
+    const res = await fetch('/api/suppliers/' + id, {method: 'DELETE'});
+    if (res.ok) location.reload(); else toast('Erreur lors de la suppression', 'error');
+}
+
+function filterRows() {
+    const q = document.getElementById('search').value.toLowerCase();
+    document.querySelectorAll('#rows tr[data-id]').forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+</script>
+</body>
+</html>

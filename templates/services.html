@@ -13,7 +13,7 @@
     .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(15,23,42,.08); margin-bottom: 22px; overflow: hidden; }
     .card-head { padding: 16px 22px; border-bottom: 1px solid #eef2f7; font-weight: bold; color: #1e3a5f; font-size: 15px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
     .card-body { padding: 20px 22px; }
-    .form-grid { display: grid; grid-template-columns: 2fr 3fr 1fr auto; gap: 12px; align-items: end; }
+    .form-grid { display: grid; grid-template-columns: 1.2fr 2fr 2.6fr 1fr auto; gap: 12px; align-items: end; }
     .field { display: flex; flex-direction: column; gap: 5px; }
     .field span { font-size: 10.5px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: .4px; }
     input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 7px; font: inherit; outline: none; }
@@ -38,14 +38,18 @@
 <body>
 {% include "_sidebar.html" %}
 <main class="container">
-    <h1>Services disponibles</h1>
-    <p class="sub">Catalogue des services proposés. Ils peuvent être sélectionnés directement lors de la création d'une facture.</p>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <h1>Services disponibles</h1>
+        <a class="btn btn-primary" href="/demo" style="text-decoration:none;">Voir le devis démo (2 pages)</a>
+    </div>
+    <p class="sub">Catalogue des services proposés. Ils peuvent être sélectionnés directement lors de la création d'une facture, d'un devis, d'un proforma ou d'un bon.</p>
 
     {% if current_user.role == 'admin' %}
     <div class="card">
         <div class="card-head"><span id="form-title">Ajouter un service</span></div>
         <div class="card-body">
             <div class="form-grid">
+                <label class="field"><span>Référence</span><input id="s-reference" placeholder="ex: SRV-001"></label>
                 <label class="field"><span>Service</span><input id="s-name" placeholder="ex: Création site web"></label>
                 <label class="field"><span>Détails</span><textarea id="s-details" rows="1" placeholder="Description"></textarea></label>
                 <label class="field"><span>Prix (DA)</span><input id="s-price" type="number" min="0" step="0.01" placeholder="0.00"></label>
@@ -61,10 +65,11 @@
     <div class="card">
         <div class="card-head">Liste des services <span style="color:#6b7280;font-weight:normal;font-size:12px">{{ services|length }} service(s)</span></div>
         <table>
-            <thead><tr><th>Service</th><th>Détails</th><th class="num">Prix (DA)</th>{% if current_user.role == 'admin' %}<th></th>{% endif %}</tr></thead>
+            <thead><tr><th>Référence</th><th>Service</th><th>Détails</th><th class="num">Prix (DA)</th>{% if current_user.role == 'admin' %}<th></th>{% endif %}</tr></thead>
             <tbody>
             {% for s in services %}
-                <tr data-id="{{ s.id }}" data-name="{{ s.name|e }}" data-details="{{ s.details|e }}" data-price="{{ s.price }}">
+                <tr data-id="{{ s.id }}" data-name="{{ s.name|e }}" data-reference="{{ s.reference|e }}" data-details="{{ s.details|e }}" data-price="{{ s.price }}">
+                    <td>{{ s.reference or '—' }}</td>
                     <td><b>{{ s.name }}</b></td>
                     <td style="white-space:pre-line;color:#4b5563">{{ s.details }}</td>
                     <td class="num">{{ '%.2f'|format(s.price or 0) }}</td>
@@ -76,7 +81,7 @@
                     {% endif %}
                 </tr>
             {% else %}
-                <tr><td colspan="4" class="empty">Aucun service pour le moment.</td></tr>
+                <tr><td colspan="5" class="empty">Aucun service pour le moment.</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -88,7 +93,7 @@ let editingId = null;
 function toast(m, t) { const e = document.getElementById('toast'); e.textContent = m; e.className = t; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 2500); }
 function resetForm() {
     editingId = null;
-    ['s-name','s-details','s-price'].forEach(i => document.getElementById(i).value = '');
+    ['s-name','s-reference','s-details','s-price'].forEach(i => document.getElementById(i).value = '');
     document.getElementById('form-title').textContent = 'Ajouter un service';
     document.getElementById('s-save').textContent = 'Ajouter';
     document.getElementById('s-cancel').style.display = 'none';
@@ -97,6 +102,7 @@ function editService(btn) {
     const d = btn.closest('tr').dataset;
     editingId = d.id;
     document.getElementById('s-name').value = d.name;
+    document.getElementById('s-reference').value = d.reference;
     document.getElementById('s-details').value = d.details;
     document.getElementById('s-price').value = d.price;
     document.getElementById('form-title').textContent = 'Modifier le service';
@@ -107,6 +113,7 @@ function editService(btn) {
 async function saveService() {
     const body = {
         name: document.getElementById('s-name').value,
+        reference: document.getElementById('s-reference').value,
         details: document.getElementById('s-details').value,
         price: parseFloat(document.getElementById('s-price').value) || 0
     };

@@ -51,6 +51,7 @@
     <div class="sb-group">
         <div class="sb-label">Général</div>
         <a class="sb-link {% if request.url.path == '/' %}active{% endif %}" href="/"><span class="ic">&#127968;</span> Tableau de bord</a>
+        <a class="sb-link {% if request.url.path.startswith('/fournisseurs') %}active{% endif %}" href="/fournisseurs"><span class="ic">&#127981;</span> Fournisseurs</a>
         <a class="sb-link {% if request.url.path.startswith('/clients') %}active{% endif %}" href="/clients"><span class="ic">&#128101;</span> Clients</a>
         <a class="sb-link {% if request.url.path.startswith('/services') %}active{% endif %}" href="/services"><span class="ic">&#128230;</span> Services</a>
     </div>

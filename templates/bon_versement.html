@@ -425,6 +425,7 @@
         #toast.error   { background: #dc2626; }
     </style>
     {% include "_doc_theme.html" %}
+    {% include "_document_pagination.html" %}
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -666,7 +667,8 @@ window.addServiceToDocument = function (svc) {
             && !tr.querySelector('.qty-input')?.value;
         if (empty) tr.remove();
     });
-    const description = svc.name + (svc.details ? '\n' + svc.details : '');
+    const description = (svc.reference ? '[' + svc.reference + '] ' : '')
+        + svc.name + (svc.details ? '\n' + svc.details : '');
     addLigne(description, 1, parseFloat(svc.price) || '', 'TVA 19%');
 };
 
@@ -829,12 +831,15 @@ async function downloadPDF() {
         ta.parentNode.replaceChild(div, ta);
         taReplacements.push({ div, ta });
     });
+    updateDocumentPagination();
+
     const opt = {
         margin: 0,
         filename: `BonVersement-${BV_NUM}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['.footer', '.inv-footer', '.signature-section'] }
     };
     await html2pdf().set(opt).from(document.querySelector('.invoice')).save();
     taReplacements.forEach(({ div, ta }) => div.parentNode.replaceChild(ta, div));

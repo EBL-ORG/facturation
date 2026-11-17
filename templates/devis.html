@@ -445,6 +445,7 @@
         #toast.error   { background: #dc2626; }
     </style>
     {% include "_doc_theme.html" %}
+    {% include "_document_pagination.html" %}
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -498,7 +499,7 @@ const DEVIS_ID = DEVIS_DATA ? DEVIS_DATA.id : null;
 
 {% include "_client_picker.html" %}
 {% include "_service_picker.html" %}
-<div class="invoice">
+<div class="invoice" data-force-pages="{{ 2 if devis and devis.client_code == 'DEMO' else 0 }}">
 
     <!-- ══ HEADER ══ -->
     <div class="inv-header">
@@ -802,7 +803,7 @@ window.addServiceToDocument = function (svc) {
         if (empty) tr.remove();
     });
     const description = svc.name + (svc.details ? '\n' + svc.details : '');
-    addLigne('', description, parseFloat(svc.price) || '', 1);
+    addLigne(svc.reference || '', description, parseFloat(svc.price) || '', 1);
 };
 
 function removeRow(btn) {
@@ -974,12 +975,15 @@ async function downloadPDF() {
         ta.parentNode.replaceChild(div, ta);
         taReplacements.push({ div, ta });
     });
+    updateDocumentPagination();
+
     const opt = {
         margin: 0,
         filename: `Devis-${DEVIS_NUM}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['.footer', '.inv-footer', '.signature-section'] }
     };
     await html2pdf().set(opt).from(document.querySelector('.invoice')).save();
     taReplacements.forEach(({ div, ta }) => div.parentNode.replaceChild(ta, div));

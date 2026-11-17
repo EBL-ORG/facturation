@@ -1,0 +1,151 @@
+<style>
+    .invoice.measuring {
+        display: block !important;
+        min-height: 0 !important;
+        height: auto !important;
+    }
+    .invoice.measuring .footer,
+    .invoice.measuring .inv-footer {
+        margin-top: 0 !important;
+    }
+
+    .invoice.multi-page {
+        display: block;
+    }
+
+    .footer-spacer {
+        display: block;
+        width: 100%;
+    }
+
+    .invoice.multi-page .footer,
+    .invoice.multi-page .inv-footer {
+        margin-top: 0 !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .invoice.multi-page .services-table tr,
+    .invoice.multi-page .signature-section,
+    .invoice.multi-page .inv-lower,
+    .invoice.multi-page .inv-words,
+    .invoice.multi-page .summary-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    .invoice.multi-page .services-table thead {
+        display: table-header-group;
+    }
+
+    @media print {
+        .invoice.measuring {
+            display: block !important;
+            min-height: 0 !important;
+            height: auto !important;
+        }
+        .invoice.measuring .footer,
+        .invoice.measuring .inv-footer {
+            margin-top: 0 !important;
+        }
+        .invoice.multi-page {
+            display: block;
+        }
+        .invoice.multi-page .footer,
+        .invoice.multi-page .inv-footer {
+            margin-top: 0 !important;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        .invoice.multi-page .services-table thead {
+            display: table-header-group;
+        }
+        .invoice.multi-page .services-table tr,
+        .invoice.multi-page .signature-section,
+        .invoice.multi-page .inv-lower,
+        .invoice.multi-page .inv-words,
+        .invoice.multi-page .summary-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+    }
+</style>
+<script>
+(function () {
+    var A4_HEIGHT_PX = 1122;
+    var TOLERANCE = 2;
+    var scheduled = false;
+
+    function updateDocumentPagination() {
+        var el = document.querySelector('.invoice');
+        if (!el) return;
+        var footer = el.querySelector('.inv-footer, .footer');
+        if (!footer) return;
+
+        var spacer = el.querySelector('.footer-spacer');
+        if (!spacer) {
+            spacer = document.createElement('div');
+            spacer.className = 'footer-spacer';
+            footer.parentNode.insertBefore(spacer, footer);
+        }
+
+        var currentSpacerHeight = spacer.offsetHeight;
+        el.classList.add('measuring');
+        el.classList.remove('multi-page');
+
+        var invoiceRect = el.getBoundingClientRect();
+        var contentHeight = footer.getBoundingClientRect().top - invoiceRect.top - currentSpacerHeight;
+        var footerHeight = footer.offsetHeight;
+        var bottomPadding = parseFloat(window.getComputedStyle(el).paddingBottom) || 0;
+
+        el.classList.remove('measuring');
+
+        var totalHeight = contentHeight + footerHeight + bottomPadding;
+        var pageCount = totalHeight <= A4_HEIGHT_PX + TOLERANCE
+            ? 1
+            : 1 + Math.ceil((totalHeight - A4_HEIGHT_PX - TOLERANCE) / (A4_HEIGHT_PX - bottomPadding));
+
+        var forcedPages = parseInt(el.dataset.forcePages || '0', 10) || 0;
+        pageCount = Math.max(1, forcedPages, pageCount);
+
+        if (pageCount > 1) {
+            el.classList.add('multi-page');
+            el.style.minHeight = (pageCount * A4_HEIGHT_PX) + 'px';
+
+            var targetFooterBottom = pageCount * A4_HEIGHT_PX - bottomPadding;
+            var spacerHeight = Math.max(0, targetFooterBottom - contentHeight - footerHeight);
+            spacer.style.height = spacerHeight + 'px';
+        } else {
+            el.classList.remove('multi-page');
+            el.style.minHeight = '';
+            spacer.style.height = '0px';
+        }
+    }
+
+    function scheduleUpdate() {
+        if (scheduled) return;
+        scheduled = true;
+        window.requestAnimationFrame(function () {
+            scheduled = false;
+            updateDocumentPagination();
+        });
+    }
+
+    window.updateDocumentPagination = updateDocumentPagination;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var el = document.querySelector('.invoice');
+        if (!el) return;
+
+        updateDocumentPagination();
+
+        if (window.ResizeObserver) {
+            new ResizeObserver(scheduleUpdate).observe(el);
+        }
+        el.addEventListener('input', scheduleUpdate);
+        el.addEventListener('change', scheduleUpdate);
+
+        setTimeout(updateDocumentPagination, 120);
+        setTimeout(updateDocumentPagination, 600);
+    });
+})();
+</script>

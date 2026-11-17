@@ -25,7 +25,9 @@
         list.forEach(function (s) {
             var o = document.createElement('option');
             o.value = s.id;
-            o.textContent = s.name + (s.price ? ' — ' + Number(s.price).toFixed(2) + ' DA' : '');
+            o.textContent = (s.reference ? '[' + s.reference + '] ' : '')
+                + s.name
+                + (s.price ? ' — ' + Number(s.price).toFixed(2) + ' DA' : '');
             sel.appendChild(o);
         });
     }).catch(function () {});

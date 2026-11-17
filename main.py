@@ -562,6 +562,7 @@ def migrate_db():
         ("company_settings", "logo_size INTEGER DEFAULT 420"),
         ("company_settings", "logo_footer_size INTEGER DEFAULT 120"),
         ("company_settings", "billed_text_size INTEGER DEFAULT 10"),
+        ("services", "reference TEXT DEFAULT ''"),
     ]
     pk = "SERIAL PRIMARY KEY" if USE_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
     try:
@@ -591,6 +592,25 @@ def migrate_db():
                 art     TEXT DEFAULT '',
                 email   TEXT DEFAULT '',
                 tel     TEXT DEFAULT ''
+            )
+        """)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+    try:
+        conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS suppliers (
+                id             {pk},
+                name           TEXT NOT NULL,
+                contact        TEXT DEFAULT '',
+                phone          TEXT DEFAULT '',
+                email          TEXT DEFAULT '',
+                address        TEXT DEFAULT '',
+                invoice_ref    TEXT DEFAULT '',
+                invoice_date   TEXT DEFAULT '',
+                invoice_amount REAL DEFAULT 0,
+                paid_amount    REAL DEFAULT 0,
+                notes          TEXT DEFAULT ''
             )
         """)
         conn.commit()
@@ -1197,16 +1217,30 @@ async def dashboard(request: Request):
         "montant_ht, montant_ttc, created_by, created_at "
         "FROM bons_versement ORDER BY id DESC"
     ).fetchall()
+    supplier_rows = conn.execute(
+        "SELECT id, name, invoice_ref, invoice_date, invoice_amount, paid_amount "
+        "FROM suppliers ORDER BY name"
+    ).fetchall()
     conn.close()
 
+    supplier_total = sum(float(r["invoice_amount"] or 0) for r in supplier_rows)
+    supplier_paid = sum(float(r["paid_amount"] or 0) for r in supplier_rows)
+    supplier_remaining = max(supplier_total - supplier_paid, 0)
+    supplier_paid_pct = min((supplier_paid / supplier_total * 100), 100) if supplier_total else 0
+
     return render(request, "index.html", {
-        "invoices":        rows,
-        "proformas":       proforma_rows,
-        "devis_list":      devis_rows,
-        "bons_commande":   bc_rows,
-        "bons_versement":  bv_rows,
-        "current_user":    user,
-        "active":          "dashboard",
+        "invoices":            rows,
+        "proformas":           proforma_rows,
+        "devis_list":          devis_rows,
+        "bons_commande":       bc_rows,
+        "bons_versement":      bv_rows,
+        "suppliers":           supplier_rows,
+        "supplier_total":      round(supplier_total, 2),
+        "supplier_paid":       round(supplier_paid, 2),
+        "supplier_remaining":  round(supplier_remaining, 2),
+        "supplier_paid_pct":   round(supplier_paid_pct, 1),
+        "current_user":        user,
+        "active":              "dashboard",
     })
 
 
@@ -1311,17 +1345,128 @@ async def api_client_delete(request: Request, client_id: int):
     return {"ok": True}
 
 
+# ── Fournisseurs ───────────────────────────────────────────────────────────
+
+SUPPLIER_FIELDS = [
+    "name", "contact", "phone", "email", "address", "invoice_ref",
+    "invoice_date", "invoice_amount", "paid_amount", "notes",
+]
+
+
+class SupplierItem(BaseModel):
+    name: str
+    contact: str = ""
+    phone: str = ""
+    email: str = ""
+    address: str = ""
+    invoice_ref: str = ""
+    invoice_date: str = ""
+    invoice_amount: float = 0
+    paid_amount: float = 0
+    notes: str = ""
+
+
+def _list_suppliers() -> list:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, " + ", ".join(SUPPLIER_FIELDS) + " FROM suppliers ORDER BY name"
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def _supplier_values(item: SupplierItem) -> tuple:
+    values = []
+    for field in SUPPLIER_FIELDS:
+        value = getattr(item, field)
+        if field in ("invoice_amount", "paid_amount"):
+            value = max(float(value or 0), 0)
+        else:
+            value = str(value or "").strip()
+        values.append(value)
+    return tuple(values)
+
+
+@app.get("/fournisseurs", response_class=HTMLResponse)
+async def suppliers_page(request: Request):
+    if not session_user(request):
+        return RedirectResponse(url="/login", status_code=302)
+    suppliers = _list_suppliers()
+    total = sum(float(s["invoice_amount"] or 0) for s in suppliers)
+    paid = sum(float(s["paid_amount"] or 0) for s in suppliers)
+    remaining = max(total - paid, 0)
+    paid_pct = min((paid / total * 100), 100) if total else 0
+    return render(request, "fournisseurs.html", {
+        "suppliers":           suppliers,
+        "supplier_total":      round(total, 2),
+        "supplier_paid":       round(paid, 2),
+        "supplier_remaining":  round(remaining, 2),
+        "supplier_paid_pct":   round(paid_pct, 1),
+        "active":              "fournisseurs",
+    })
+
+
+@app.get("/api/suppliers")
+async def api_suppliers(request: Request):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    return _list_suppliers()
+
+
+@app.post("/api/suppliers")
+async def api_supplier_create(request: Request, item: SupplierItem):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    if not item.name.strip():
+        raise HTTPException(status_code=400, detail="Nom du fournisseur requis")
+    conn = get_db()
+    cur = conn.insert(
+        "INSERT INTO suppliers (" + ", ".join(SUPPLIER_FIELDS) + ") VALUES ("
+        + ",".join("?" * len(SUPPLIER_FIELDS)) + ")", _supplier_values(item))
+    new_id = cur.lastrowid
+    conn.commit(); conn.close()
+    return {"id": new_id}
+
+
+@app.put("/api/suppliers/{supplier_id}")
+async def api_supplier_update(request: Request, supplier_id: int, item: SupplierItem):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    if not item.name.strip():
+        raise HTTPException(status_code=400, detail="Nom du fournisseur requis")
+    conn = get_db()
+    conn.execute(
+        "UPDATE suppliers SET " + ", ".join(f"{k}=?" for k in SUPPLIER_FIELDS) + " WHERE id=?",
+        _supplier_values(item) + (supplier_id,))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
+@app.delete("/api/suppliers/{supplier_id}")
+async def api_supplier_delete(request: Request, supplier_id: int):
+    user = session_user(request)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    conn = get_db()
+    conn.execute("DELETE FROM suppliers WHERE id=?", (supplier_id,))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
 # ── Services catalogue ─────────────────────────────────────────────────────
 
 class ServiceItem(BaseModel):
     name: str
+    reference: str = ""
     details: str = ""
     price: float = 0
 
 
 def _list_services() -> list:
     conn = get_db()
-    rows = conn.execute("SELECT id, name, details, price FROM services ORDER BY name").fetchall()
+    rows = conn.execute(
+        "SELECT id, name, reference, details, price FROM services ORDER BY name"
+    ).fetchall()
     conn.close()
     return rows
 
@@ -1349,8 +1494,9 @@ async def api_service_create(request: Request, item: ServiceItem):
     if not item.name.strip():
         raise HTTPException(status_code=400, detail="Nom du service requis")
     conn = get_db()
-    cur = conn.insert("INSERT INTO services (name, details, price) VALUES (?,?,?)",
-                      (item.name.strip(), item.details.strip(), item.price))
+    cur = conn.insert(
+        "INSERT INTO services (name, reference, details, price) VALUES (?,?,?,?)",
+        (item.name.strip(), item.reference.strip(), item.details.strip(), item.price))
     new_id = cur.lastrowid
     conn.commit(); conn.close()
     return {"id": new_id}
@@ -1364,8 +1510,9 @@ async def api_service_update(request: Request, service_id: int, item: ServiceIte
     if not item.name.strip():
         raise HTTPException(status_code=400, detail="Nom du service requis")
     conn = get_db()
-    conn.execute("UPDATE services SET name=?, details=?, price=? WHERE id=?",
-                 (item.name.strip(), item.details.strip(), item.price, service_id))
+    conn.execute("UPDATE services SET name=?, reference=?, details=?, price=? WHERE id=?",
+                 (item.name.strip(), item.reference.strip(), item.details.strip(),
+                  item.price, service_id))
     conn.commit(); conn.close()
     return {"ok": True}
 
@@ -1527,14 +1674,64 @@ async def update_proforma(request: Request, proforma_id: int, data: ProformaCrea
     return {"success": True, "id": proforma_id}
 
 
+def _demo_devis_data() -> dict:
+    services = _list_services()
+    lignes = []
+    if services:
+        for i in range(20):
+            s = services[i % len(services)]
+            description = s["name"] + ("\n" + s["details"] if s["details"] else "")
+            lignes.append({
+                "reference":  s["reference"] or f"SRV-{(i % len(services)) + 1:02d}",
+                "description": description,
+                "pu_ht":      s["price"] or 0,
+                "quantite":   1,
+                "montant_ht": s["price"] or 0,
+            })
+
+    total_ht = sum(l["montant_ht"] for l in lignes)
+    montant_tva = round(total_ht * 0.19, 2)
+    return {
+        "devis_date":     datetime.now().strftime("%Y-%m-%d"),
+        "client_code":    "DEMO",
+        "client_raison":  "CLIENT DÉMONSTRATION",
+        "client_nom":     "Sélection de services",
+        "client_adresse": "Adresse de démonstration, Alger",
+        "client_rc":      "DEMO-RC",
+        "client_nif":     "DEMO-NIF",
+        "client_nis":     "DEMO-NIS",
+        "client_ai":      "DEMO-AI",
+        "client_email":   "demo@example.com",
+        "client_tel":     "0550 00 00 00",
+        "objet":          "Démo — choix de services depuis le catalogue (document sur 2 pages)",
+        "reglement":      "Chèque",
+        "paiement":       "40% à la commande, 30% à mi-projet, 30% à la livraison",
+        "validite_jours": 30,
+        "delai_min":      7,
+        "delai_max":      21,
+        "remise_pct":     0,
+        "apply_tva":      1,
+        "total_ht":       total_ht,
+        "montant_tva":    montant_tva,
+        "total_ttc":      total_ht + montant_tva,
+        "lignes":         lignes,
+    }
+
+
+@app.get("/demo")
+async def demo_devis():
+    return RedirectResponse(url="/devis/new?demo=1", status_code=302)
+
+
 @app.get("/devis/new", response_class=HTMLResponse)
 async def new_devis(request: Request):
     user = session_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
+    is_demo = request.query_params.get("demo") == "1"
     return render(request, "devis.html", {
         "devis_num":    get_next_devis_number(),
-        "devis":        None,
+        "devis":        _demo_devis_data() if is_demo else None,
         "readonly":     False,
         "creator":      None,
         "current_user": user

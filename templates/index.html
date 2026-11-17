@@ -128,6 +128,20 @@
         .stat-value { font-size: 24px; font-weight: bold; color: #1e293b; }
         .stat-value.small { font-size: 16px; }
 
+        .progress {
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 99px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .progress > span {
+            display: block;
+            height: 100%;
+            background: #16a34a;
+            border-radius: 99px;
+        }
+
         /* ── Tabs ── */
         .tabs {
             display: flex;
@@ -303,6 +317,15 @@
         <div class="stat-card orange">
             <div class="stat-label">Net à payer</div>
             <div class="stat-value small">{{ "{:,.2f}".format(net_inv).replace(",", " ").replace(".", ",") }} DA</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="stat-label">Reste à payer fournisseurs</div>
+            <div class="stat-value small">{{ "{:,.2f}".format(supplier_remaining).replace(",", " ").replace(".", ",") }} DA</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-label">Payé fournisseurs</div>
+            <div class="stat-value small">{{ ("%.1f"|format(supplier_paid_pct)).replace(".", ",") }} %</div>
+            <div class="progress"><span style="width: {{ supplier_paid_pct }}%"></span></div>
         </div>
         <div class="stat-card purple">
             <div class="stat-label">Proformas</div>
