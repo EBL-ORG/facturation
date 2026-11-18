@@ -998,7 +998,7 @@ async function downloadPDF() {
         ta.parentNode.replaceChild(div, ta);
         taReplacements.push({ div, ta });
     });
-    updateDocumentPagination();
+    preparePdf();
 
     const opt = {
         margin: 0,
@@ -1009,6 +1009,7 @@ async function downloadPDF() {
         pagebreak: { mode: ['css', 'legacy'], avoid: ['.footer', '.inv-footer', '.signature-section'] }
     };
     await html2pdf().set(opt).from(document.querySelector('.invoice')).save();
+    restorePdf();
     taReplacements.forEach(({ div, ta }) => div.parentNode.replaceChild(ta, div));
     hidden.forEach(el => el.style.display = '');
     btn.disabled = false;

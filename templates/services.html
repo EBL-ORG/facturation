@@ -30,12 +30,6 @@
     td.num, th.num { text-align: right; white-space: nowrap; }
     td.act { text-align: right; white-space: nowrap; width: 150px; }
     .wrap-cell { white-space: normal; overflow-wrap: anywhere; line-height: 1.45; }
-    .usage-list { display: flex; flex-wrap: wrap; gap: 5px; max-width: 340px; }
-    .usage { display: inline-block; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
-             border-radius: 20px; padding: 3px 9px; font-size: 11px; text-decoration: none; white-space: normal; }
-    .usage:hover { background: #dbeafe; }
-    .usage-none { color: #9ca3af; font-size: 12px; }
-    .usage-type { color: #6b7280; }
     .empty { text-align: center; color: #9ca3af; padding: 30px; }
     #toast { display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); padding:12px 28px; border-radius:6px; font-weight:bold; color:#fff; z-index:1000; }
     #toast.success { background:#16a34a; } #toast.error { background:#dc2626; }
@@ -70,7 +64,7 @@
     <div class="card">
         <div class="card-head">Liste des services <span style="color:#6b7280;font-weight:normal;font-size:12px">{{ services|length }} service(s)</span></div>
         <table>
-            <thead><tr><th>Référence</th><th>Service</th><th>Détails</th><th class="num">Prix (DA)</th><th>Documents utilisant cette référence</th><th></th></tr></thead>
+            <thead><tr><th>Référence</th><th>Service</th><th>Détails</th><th class="num">Prix (DA)</th><th></th></tr></thead>
             <tbody>
             {% for s in services %}
                 <tr data-id="{{ s.id }}" data-name="{{ s.name|e }}" data-reference="{{ s.reference|e }}" data-details="{{ s.details|e }}" data-price="{{ s.price }}">
@@ -78,26 +72,13 @@
                     <td class="wrap-cell"><b>{{ s.name }}</b></td>
                     <td class="wrap-cell" style="white-space:pre-line;color:#4b5563">{{ s.details }}</td>
                     <td class="num">{{ '%.2f'|format(s.price or 0) }}</td>
-                    <td class="wrap-cell">
-                        {% if s.usages %}
-                        <div class="usage-list">
-                            {% for u in s.usages %}
-                            <a class="usage" href="{{ u.url }}" title="{{ u.type }} — {{ u.client }}">
-                                <span class="usage-type">{{ u.type }} :</span> {{ u.num }}
-                            </a>
-                            {% endfor %}
-                        </div>
-                        {% else %}
-                        <span class="usage-none">Non utilisé pour le moment</span>
-                        {% endif %}
-                    </td>
                     <td class="act">
                         <button class="btn btn-edit" onclick="editService(this)">Modifier</button>
                         <button class="btn btn-del" onclick="deleteService({{ s.id }})">&#10005;</button>
                     </td>
                 </tr>
             {% else %}
-                <tr><td colspan="6" class="empty">Aucun service pour le moment.</td></tr>
+                <tr><td colspan="5" class="empty">Aucun service pour le moment.</td></tr>
             {% endfor %}
             </tbody>
         </table>
