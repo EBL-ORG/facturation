@@ -10,6 +10,10 @@
         letter-spacing: .1px;
     }
     .invoice input, .invoice textarea { color: #000; font-family: inherit; }
+    .invoice textarea.inv-billed-input.name {
+        resize: none; overflow: hidden; width: 100%; max-width: 100%;
+        min-height: 0; line-height: 1.45;
+    }
 
     .inv-header {
         display: flex; flex-direction: column; gap: 8px;
@@ -141,6 +145,12 @@
 </style>
 <script>
 function fitBilledInput(el) {
+    if (el.tagName === 'TEXTAREA') {
+        el.style.width = '100%';
+        el.style.height = 'auto';
+        el.style.height = Math.max(el.scrollHeight, 18) + 'px';
+        return;
+    }
     var len = (el.value || '').length;
     el.style.width = Math.min(50, Math.max(4, len + 1)) + 'ch';
 }

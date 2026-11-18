@@ -282,11 +282,26 @@
         .btn-edit:hover { background: #ffedd5; }
 
         .actions { display: flex; align-items: center; gap: 5px; }
+        .client-cell { white-space: normal; overflow-wrap: anywhere; min-width: 160px; line-height: 1.4; }
+        .btn-del {
+            background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
+            padding: 5px 13px; border-radius: 5px; font-size: 12px; font-weight: bold;
+            cursor: pointer; transition: background .15s;
+        }
+        .btn-del:hover { background: #fee2e2; }
+        .btn-new.compact { padding: 6px 12px; font-size: 12px; }
+        #toast {
+            display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            padding: 12px 28px; border-radius: 6px; font-weight: bold; color: #fff; z-index: 1000;
+        }
+        #toast.success { background: #16a34a; }
+        #toast.error { background: #dc2626; }
     </style>
 </head>
 <body>
 
 {% include "_sidebar.html" %}
+<div id="toast"></div>
 
 <!-- Main -->
 <main class="container">
@@ -386,8 +401,12 @@
         <div class="table-card">
             <div class="table-card-header">
                 <h2>Liste des factures</h2>
-                <input type="text" class="search-input" id="search-inv"
-                       placeholder="Rechercher..." oninput="filterTable('invoices-table','search-inv')">
+                <div class="actions">
+                    <input type="text" class="search-input" id="search-inv"
+                           placeholder="Rechercher..." oninput="filterTable('invoices-table','search-inv')">
+                    <a href="/invoice/new" class="btn-new compact">&#43; Nouvelle facture</a>
+                    <a href="/documents/factures" class="btn-view">Voir la liste</a>
+                </div>
             </div>
             {% if invoices %}
             <table id="invoices-table">
@@ -411,16 +430,15 @@
                                 <span class="badge-date">{{ inv.facture_date }}</span>
                             {% else %}<span style="color:#9ca3af">—</span>{% endif %}
                         </td>
-                        <td>{{ inv.client_doit or '—' }}</td>
+                        <td class="client-cell" title="{{ inv.client_doit or '' }}">{{ inv.client_doit or '—' }}</td>
                         <td class="amount">{{ "{:,.2f}".format(inv.montant_ht or 0).replace(",", " ").replace(".", ",") }} DA</td>
                         <td class="amount">{{ "{:,.2f}".format(inv.net_a_payer or 0).replace(",", " ").replace(".", ",") }} DA</td>
                         <td style="color:#6b7280; font-size:12px;">{{ inv.created_by or '—' }}</td>
                         <td>
                             <div class="actions">
                                 <a href="/invoice/{{ inv.id }}" class="btn-view">&#128065; Voir</a>
-                                {% if current_user.role == 'admin' %}
                                 <a href="/invoice/{{ inv.id }}?edit=1" class="btn-edit">&#9998; Modifier</a>
-                                {% endif %}
+                                <button class="btn-del" onclick="deleteDoc('factures', {{ inv.id }}, this)">&#10005; Supprimer</button>
                             </div>
                         </td>
                     </tr>
@@ -442,8 +460,12 @@
         <div class="table-card">
             <div class="table-card-header">
                 <h2>Liste des proformas</h2>
-                <input type="text" class="search-input" id="search-pro"
-                       placeholder="Rechercher..." oninput="filterTable('proformas-table','search-pro')">
+                <div class="actions">
+                    <input type="text" class="search-input" id="search-pro"
+                           placeholder="Rechercher..." oninput="filterTable('proformas-table','search-pro')">
+                    <a href="/proforma/new" class="btn-new purple compact">&#43; Nouvelle proforma</a>
+                    <a href="/documents/proformas" class="btn-view purple">Voir la liste</a>
+                </div>
             </div>
             {% if proformas %}
             <table id="proformas-table">
@@ -467,16 +489,15 @@
                                 <span class="badge-date">{{ pro.proforma_date }}</span>
                             {% else %}<span style="color:#9ca3af">—</span>{% endif %}
                         </td>
-                        <td>{{ pro.client_raison or '—' }}</td>
+                        <td class="client-cell" title="{{ pro.client_raison or '' }}">{{ pro.client_raison or '—' }}</td>
                         <td class="amount">{{ "{:,.2f}".format(pro.total_ht or 0).replace(",", " ").replace(".", ",") }} DA</td>
                         <td class="amount">{{ "{:,.2f}".format(pro.total_ttc or 0).replace(",", " ").replace(".", ",") }} DA</td>
                         <td style="color:#6b7280; font-size:12px;">{{ pro.created_by or '—' }}</td>
                         <td>
                             <div class="actions">
-                                <a href="/proforma/{{ pro.id }}" class="btn-view purple">&#128065; Voir</a>
-                                {% if current_user.role == 'admin' %}
-                                <a href="/proforma/{{ pro.id }}?edit=1" class="btn-edit">&#9998; Modifier</a>
-                                {% endif %}
+                                 <a href="/proforma/{{ pro.id }}" class="btn-view purple">&#128065; Voir</a>
+                                 <a href="/proforma/{{ pro.id }}?edit=1" class="btn-edit">&#9998; Modifier</a>
+                                 <button class="btn-del" onclick="deleteDoc('proformas', {{ pro.id }}, this)">&#10005; Supprimer</button>
                             </div>
                         </td>
                     </tr>
@@ -498,8 +519,12 @@
         <div class="table-card">
             <div class="table-card-header">
                 <h2>Liste des bons de commande</h2>
-                <input type="text" class="search-input" id="search-bc"
-                       placeholder="Rechercher..." oninput="filterTable('bc-table','search-bc')">
+                <div class="actions">
+                    <input type="text" class="search-input" id="search-bc"
+                           placeholder="Rechercher..." oninput="filterTable('bc-table','search-bc')">
+                    <a href="/bc/new" class="btn-new orange compact">&#43; Nouveau BC</a>
+                    <a href="/documents/bons-commande" class="btn-view">Voir la liste</a>
+                </div>
             </div>
             {% if bons_commande %}
             <table id="bc-table">
@@ -523,11 +548,16 @@
                                 <span class="badge-date">{{ bc.bc_date }}</span>
                             {% else %}<span style="color:#9ca3af">—</span>{% endif %}
                         </td>
-                        <td>{{ bc.client_nom or '—' }}</td>
+                        <td class="client-cell" title="{{ bc.client_nom or '' }}">{{ bc.client_nom or '—' }}</td>
                         <td class="amount">{{ "{:,.2f}".format(bc.montant_ht or 0).replace(",", " ").replace(".", ",") }} DA</td>
                         <td class="amount">{{ "{:,.2f}".format(bc.montant_ttc or 0).replace(",", " ").replace(".", ",") }} DA</td>
                         <td style="color:#6b7280; font-size:12px;">{{ bc.created_by or '—' }}</td>
-                        <td><a href="/bc/{{ bc.id }}" class="btn-view" style="background:#fffbeb; color:#d97706; border-color:#fde68a;">&#128065; Voir</a></td>
+                        <td>
+                            <div class="actions">
+                                <a href="/bc/{{ bc.id }}" class="btn-view" style="background:#fffbeb; color:#d97706; border-color:#fde68a;">&#128065; Voir</a>
+                                <button class="btn-del" onclick="deleteDoc('bons-commande', {{ bc.id }}, this)">&#10005; Supprimer</button>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -547,8 +577,12 @@
         <div class="table-card">
             <div class="table-card-header">
                 <h2>Liste des devis</h2>
-                <input type="text" class="search-input" id="search-dev"
-                       placeholder="Rechercher..." oninput="filterTable('devis-table','search-dev')">
+                <div class="actions">
+                    <input type="text" class="search-input" id="search-dev"
+                           placeholder="Rechercher..." oninput="filterTable('devis-table','search-dev')">
+                    <a href="/devis/new" class="btn-new teal compact">&#43; Nouveau devis</a>
+                    <a href="/documents/devis" class="btn-view">Voir la liste</a>
+                </div>
             </div>
             {% if devis_list %}
             <table id="devis-table">
@@ -572,16 +606,15 @@
                                 <span class="badge-date">{{ dev.devis_date }}</span>
                             {% else %}<span style="color:#9ca3af">—</span>{% endif %}
                         </td>
-                        <td>{{ dev.client_raison or '—' }}</td>
+                        <td class="client-cell" title="{{ dev.client_raison or '' }}">{{ dev.client_raison or '—' }}</td>
                         <td class="amount">{{ "{:,.2f}".format(dev.total_ht or 0).replace(",", " ").replace(".", ",") }} DA</td>
                         <td class="amount">{{ "{:,.2f}".format(dev.total_ttc or 0).replace(",", " ").replace(".", ",") }} DA</td>
                         <td style="color:#6b7280; font-size:12px;">{{ dev.created_by or '—' }}</td>
                         <td>
                             <div class="actions">
-                                <a href="/devis/{{ dev.id }}" class="btn-view" style="background:#ecfeff; color:#0891b2; border-color:#a5f3fc;">&#128065; Voir</a>
-                                {% if current_user.role == 'admin' %}
-                                <a href="/devis/{{ dev.id }}?edit=1" class="btn-edit">&#9998; Modifier</a>
-                                {% endif %}
+                                 <a href="/devis/{{ dev.id }}" class="btn-view" style="background:#ecfeff; color:#0891b2; border-color:#a5f3fc;">&#128065; Voir</a>
+                                 <a href="/devis/{{ dev.id }}?edit=1" class="btn-edit">&#9998; Modifier</a>
+                                 <button class="btn-del" onclick="deleteDoc('devis', {{ dev.id }}, this)">&#10005; Supprimer</button>
                             </div>
                         </td>
                     </tr>
@@ -603,8 +636,12 @@
         <div class="table-card">
             <div class="table-card-header">
                 <h2>Liste des bons de versement</h2>
-                <input type="text" class="search-input" id="search-bv"
-                       placeholder="Rechercher..." oninput="filterTable('bv-table','search-bv')">
+                <div class="actions">
+                    <input type="text" class="search-input" id="search-bv"
+                           placeholder="Rechercher..." oninput="filterTable('bv-table','search-bv')">
+                    <a href="/bv/new" class="btn-new green compact">&#43; Nouveau BV</a>
+                    <a href="/documents/bons-versement" class="btn-view">Voir la liste</a>
+                </div>
             </div>
             {% if bons_versement %}
             <table id="bv-table">
@@ -628,11 +665,16 @@
                                 <span class="badge-date">{{ bv.bv_date }}</span>
                             {% else %}<span style="color:#9ca3af">—</span>{% endif %}
                         </td>
-                        <td>{{ bv.client_nom or '—' }}</td>
+                        <td class="client-cell" title="{{ bv.client_nom or '' }}">{{ bv.client_nom or '—' }}</td>
                         <td class="amount">{{ "{:,.2f}".format(bv.montant_ht or 0).replace(",", " ").replace(".", ",") }} DA</td>
                         <td class="amount">{{ "{:,.2f}".format(bv.montant_ttc or 0).replace(",", " ").replace(".", ",") }} DA</td>
                         <td style="color:#6b7280; font-size:12px;">{{ bv.created_by or '—' }}</td>
-                        <td><a href="/bv/{{ bv.id }}" class="btn-view" style="background:#ecfdf5; color:#059669; border-color:#6ee7b7;">&#128065; Voir</a></td>
+                        <td>
+                            <div class="actions">
+                                <a href="/bv/{{ bv.id }}" class="btn-view" style="background:#ecfdf5; color:#059669; border-color:#6ee7b7;">&#128065; Voir</a>
+                                <button class="btn-del" onclick="deleteDoc('bons-versement', {{ bv.id }}, this)">&#10005; Supprimer</button>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -655,13 +697,48 @@ function switchTab(name, btn) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-' + name).classList.add('active');
+    location.hash = name;
 }
+
+(function () {
+    const name = location.hash.replace('#', '');
+    const panel = document.getElementById('panel-' + name);
+    if (panel) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        panel.classList.add('active');
+        const buttons = document.querySelectorAll('.tab-btn');
+        buttons.forEach(b => {
+            if (b.getAttribute('onclick') === "switchTab('" + name + "', this)") b.classList.add('active');
+        });
+    }
+})();
 
 function filterTable(tableId, inputId) {
     const q = document.getElementById(inputId).value.toLowerCase();
     document.querySelectorAll('#' + tableId + ' tbody tr').forEach(row => {
         row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
     });
+}
+
+function toast(message, type) {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.className = type;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 2500);
+}
+
+async function deleteDoc(docType, id, btn) {
+    if (!confirm('Supprimer ce document ? Cette action est définitive.')) return;
+    const res = await fetch('/api/documents/' + docType + '/' + id, {method: 'DELETE'});
+    if (!res.ok) {
+        toast('Erreur lors de la suppression', 'error');
+        return;
+    }
+    btn.closest('tr').remove();
+    toast('Document supprimé', 'success');
+    location.reload();
 }
 </script>
 </body>

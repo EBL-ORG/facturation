@@ -520,6 +520,10 @@
         }
         .inv-billed .inv-billed-input.name { font-size: 1.05em; font-weight: 700; }
         .inv-billed .inv-billed-input.line { font-size: 1em; }
+        .inv-billed textarea.inv-billed-input.name {
+            resize: none; overflow: hidden; width: 100%; max-width: 100%;
+            min-height: 0; line-height: 1.45;
+        }
         .inv-billed .inv-field { display: flex; margin-right: 0; }
         .inv-billed-ids {
             display: flex; flex-wrap: nowrap; align-items: center;
@@ -651,12 +655,12 @@
 
 <!-- Toolbar -->
 <div class="toolbar no-print">
-    <a href="/" class="btn btn-back">&#8592; Retour à la liste</a>
+    <a href="/documents/factures" class="btn btn-back">&#8592; Retour à la liste</a>
     {% if readonly %}
     <button class="btn btn-primary" onclick="window.print()">&#128438; Imprimer / PDF</button>
     <button class="btn btn-download" id="btn-download" onclick="downloadPDF()">&#11015; Télécharger PDF</button>
     {% endif %}
-    {% if readonly and current_user.role == 'admin' %}
+    {% if readonly %}
     <button class="btn btn-primary" id="btn-edit" onclick="enableEdit()">&#9998; Modifier</button>
     <button class="btn btn-save" id="btn-save-edit" style="display:none" onclick="saveEdit()">&#128190; Enregistrer les modifications</button>
     {% endif %}
@@ -674,6 +678,8 @@
 
 <!-- Toast notification -->
 <div id="toast"></div>
+
+{% include "_service_picker.html" %}
 
 <div class="invoice">
     <div class="inv-header">
@@ -712,7 +718,7 @@
                 <div class="inv-billed" style="font-size: {{ company.billed_text_size }}px">
             <div class="inv-billed-title">Facturé à</div>
             <div class="inv-field"><b>Client :</b>
-                <input type="text" id="client-doit" class="inv-billed-input name">
+                <textarea id="client-doit" class="inv-billed-input name" rows="1"></textarea>
             </div>
             <div class="inv-field"><b>Adresse :</b>
                 <input type="text" id="client-adresse" class="inv-billed-input line">
@@ -848,6 +854,12 @@ document.addEventListener('DOMContentLoaded', () => {
 function fitBilledInputs() {
     document.querySelectorAll('.inv-billed-input').forEach(el => {
         const fit = () => {
+            if (el.tagName === 'TEXTAREA') {
+                el.style.width = '100%';
+                el.style.height = 'auto';
+                el.style.height = Math.max(el.scrollHeight, 18) + 'px';
+                return;
+            }
             const len = (el.value || '').length;
             el.style.width = Math.min(50, Math.max(4, len + 1)) + 'ch';
         };
@@ -888,6 +900,16 @@ function addRow(service = '', details = '', prix = '') {
     if (ta) autoResize(ta);
     calculateTotals();
 }
+
+window.addServiceToDocument = function (svc) {
+    document.querySelectorAll('#services-body tr').forEach(row => {
+        const empty = Array.from(row.querySelectorAll('textarea')).every(t => !t.value.trim())
+            && !row.querySelector('input[type="number"]')?.value;
+        if (empty) row.remove();
+    });
+    const service = (svc.reference ? '[' + svc.reference + '] ' : '') + (svc.name || '');
+    addRow(service, svc.details || '', parseFloat(svc.price) || '');
+};
 
 function removeRow(btn) {
     btn.closest('tr').remove();
@@ -1031,6 +1053,8 @@ function enableEdit() {
         el.style.cursor = '';
     });
     document.getElementById('add-row-btn').style.display = '';
+    const servicePicker = document.getElementById('service-picker');
+    if (servicePicker) servicePicker.style.display = 'flex';
     document.querySelectorAll('.btn-danger').forEach(b => b.style.display = '');
     document.getElementById('btn-edit').style.display = 'none';
     document.getElementById('btn-save-edit').style.display = '';

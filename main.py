@@ -885,6 +885,19 @@ class BonVersementCreate(BaseModel):
     mode_reglement:   Optional[str] = None
 
 
+class InvoiceAmounts(BaseModel):
+    montant_ht:   Optional[float] = None
+    montant_tva:  Optional[float] = None
+    montant_ttc:  Optional[float] = None
+    timbre:       Optional[float] = None
+    net_a_payer:  Optional[float] = None
+
+
+class SupplierInvoiceAmounts(BaseModel):
+    amount:      Optional[float] = None
+    paid_amount: Optional[float] = None
+
+
 # ── Auth routes ────────────────────────────────────────────────────────────
 
 @app.get("/login", response_class=HTMLResponse)
@@ -1284,6 +1297,178 @@ async def dashboard(request: Request):
     })
 
 
+# ── Document lists and shared document actions ─────────────────────────────
+
+DOCUMENT_CONFIG = {
+    "factures": {
+        "title": "Factures",
+        "new_label": "Nouvelle facture",
+        "new_url": "/invoice/new",
+        "table": "invoices",
+        "num_col": "facture_num",
+        "date_col": "facture_date",
+        "client_col": "client_doit",
+        "view_url": "/invoice/",
+        "edit_url": "/invoice/",
+        "edit_suffix": "?edit=1",
+        "amount_api": "/api/invoices/",
+        "color": "#1e3a5f",
+        "amounts": [
+            {"key": "montant_ht",  "label": "Montant HT"},
+            {"key": "montant_tva", "label": "TVA"},
+            {"key": "montant_ttc", "label": "Total TTC"},
+            {"key": "timbre",      "label": "Timbre"},
+            {"key": "net_a_payer", "label": "Net à payer"},
+        ],
+    },
+    "proformas": {
+        "title": "Proformas",
+        "new_label": "Nouvelle proforma",
+        "new_url": "/proforma/new",
+        "table": "proformas",
+        "num_col": "proforma_num",
+        "date_col": "proforma_date",
+        "client_col": "client_raison",
+        "view_url": "/proforma/",
+        "edit_url": "/proforma/",
+        "edit_suffix": "?edit=1",
+        "amount_api": "",
+        "color": "#7c3aed",
+        "amounts": [
+            {"key": "total_ht",  "label": "Total HT"},
+            {"key": "total_ttc", "label": "Total TTC"},
+        ],
+    },
+    "devis": {
+        "title": "Devis",
+        "new_label": "Nouveau devis",
+        "new_url": "/devis/new",
+        "table": "devis",
+        "num_col": "devis_num",
+        "date_col": "devis_date",
+        "client_col": "client_raison",
+        "view_url": "/devis/",
+        "edit_url": "/devis/",
+        "edit_suffix": "?edit=1",
+        "amount_api": "",
+        "color": "#0891b2",
+        "amounts": [
+            {"key": "total_ht",  "label": "Total HT"},
+            {"key": "total_ttc", "label": "Total TTC"},
+        ],
+    },
+    "bons-commande": {
+        "title": "Bons de commande",
+        "new_label": "Nouveau bon de commande",
+        "new_url": "/bc/new",
+        "table": "bons_commande",
+        "num_col": "bc_num",
+        "date_col": "bc_date",
+        "client_col": "client_nom",
+        "view_url": "/bc/",
+        "edit_url": "/bc/",
+        "edit_suffix": "?edit=1",
+        "amount_api": "",
+        "color": "#d97706",
+        "amounts": [
+            {"key": "montant_ht",  "label": "Montant HT"},
+            {"key": "montant_ttc", "label": "Montant TTC"},
+        ],
+    },
+    "bons-versement": {
+        "title": "Bons de versement",
+        "new_label": "Nouveau bon de versement",
+        "new_url": "/bv/new",
+        "table": "bons_versement",
+        "num_col": "bv_num",
+        "date_col": "bv_date",
+        "client_col": "client_nom",
+        "view_url": "/bv/",
+        "edit_url": "/bv/",
+        "edit_suffix": "?edit=1",
+        "amount_api": "",
+        "color": "#059669",
+        "amounts": [
+            {"key": "montant_ht",  "label": "Montant HT"},
+            {"key": "montant_ttc", "label": "Montant TTC"},
+        ],
+    },
+}
+
+
+def _document_rows(cfg: dict) -> list:
+    fields = ["id", cfg["num_col"], cfg["date_col"], cfg["client_col"],
+              "created_by", "created_at"]
+    fields += [a["key"] for a in cfg["amounts"]]
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT " + ", ".join(fields) + " FROM " + cfg["table"] + " ORDER BY id DESC"
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+@app.get("/documents/{doc_type}", response_class=HTMLResponse)
+async def documents_page(request: Request, doc_type: str):
+    if not session_user(request):
+        return RedirectResponse(url="/login", status_code=302)
+    cfg = DOCUMENT_CONFIG.get(doc_type)
+    if not cfg:
+        raise HTTPException(status_code=404, detail="Type de document introuvable")
+    return render(request, "documents_list.html", {
+        "cfg":         cfg,
+        "doc_type":    doc_type,
+        "rows":        _document_rows(cfg),
+        "active":      "documents",
+        "current_user": session_user(request),
+    })
+
+
+@app.delete("/api/documents/{doc_type}/{doc_id}")
+async def api_document_delete(request: Request, doc_type: str, doc_id: int):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    cfg = DOCUMENT_CONFIG.get(doc_type)
+    if not cfg:
+        raise HTTPException(status_code=404, detail="Type de document introuvable")
+    conn = get_db()
+    existing = conn.execute(
+        "SELECT id FROM " + cfg["table"] + " WHERE id = ?", (doc_id,)
+    ).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Document introuvable")
+    conn.execute("DELETE FROM " + cfg["table"] + " WHERE id = ?", (doc_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+def _apply_amounts(table: str, row_id: int, data) -> dict:
+    changes = {
+        key: max(float(value), 0)
+        for key, value in data.model_dump().items()
+        if value is not None
+    }
+    if not changes:
+        return {}
+    conn = get_db()
+    conn.execute(
+        "UPDATE " + table + " SET " + ", ".join(f"{key}=?" for key in changes)
+        + " WHERE id=?",
+        tuple(changes.values()) + (row_id,)
+    )
+    conn.commit()
+    conn.close()
+    return changes
+
+
+@app.patch("/api/invoices/{invoice_id}/amounts")
+async def api_invoice_amounts(request: Request, invoice_id: int, data: InvoiceAmounts):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    return _apply_amounts("invoices", invoice_id, data)
+
 
 # ── Clients ────────────────────────────────────────────────────────────────
 
@@ -1527,9 +1712,8 @@ async def api_supplier_update(request: Request, supplier_id: int, item: Supplier
 
 @app.delete("/api/suppliers/{supplier_id}")
 async def api_supplier_delete(request: Request, supplier_id: int):
-    user = session_user(request)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
     conn = get_db()
     conn.execute("DELETE FROM supplier_invoices WHERE supplier_id=?", (supplier_id,))
     conn.execute("DELETE FROM suppliers WHERE id=?", (supplier_id,))
@@ -1581,11 +1765,33 @@ async def api_supplier_invoice_update(
     return {"ok": True}
 
 
+@app.patch("/api/supplier-invoices/{invoice_id}/amounts")
+async def api_supplier_invoice_amounts(
+    request: Request, invoice_id: int, data: SupplierInvoiceAmounts
+):
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    paid = data.paid_amount
+    amount = data.amount
+    if paid is not None:
+        conn = get_db()
+        row = conn.execute(
+            "SELECT amount FROM supplier_invoices WHERE id=?", (invoice_id,)
+        ).fetchone()
+        conn.close()
+        current_amount = float(amount if amount is not None else (row["amount"] or 0))
+        if row and current_amount > 0 and paid > current_amount:
+            raise HTTPException(
+                status_code=400,
+                detail="Le montant payé dépasse le montant de la facture",
+            )
+    return _apply_amounts("supplier_invoices", invoice_id, data)
+
+
 @app.delete("/api/supplier-invoices/{invoice_id}")
 async def api_supplier_invoice_delete(request: Request, invoice_id: int):
-    user = session_user(request)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
     conn = get_db()
     conn.execute("DELETE FROM supplier_invoices WHERE id=?", (invoice_id,))
     conn.commit(); conn.close()
@@ -1610,12 +1816,79 @@ def _list_services() -> list:
     return rows
 
 
+SERVICE_DOC_SOURCES = [
+    ("Facture", "invoices", "facture_num", "client_doit", "services", "/invoice/"),
+    ("Proforma", "proformas", "proforma_num", "client_raison", "lignes", "/proforma/"),
+    ("Devis", "devis", "devis_num", "client_raison", "lignes", "/devis/"),
+    ("Bon de commande", "bons_commande", "bc_num", "client_nom", "lignes", "/bc/"),
+    ("Bon de versement", "bons_versement", "bv_num", "client_nom", "lignes", "/bv/"),
+]
+
+
+def _service_usages(services: list) -> dict:
+    usages = {s["id"]: [] for s in services}
+    if not services:
+        return usages
+    conn = get_db()
+    for label, table, num_col, client_col, lines_col, url in SERVICE_DOC_SOURCES:
+        try:
+            rows = conn.execute(
+                f"SELECT id, {num_col} AS doc_num, {client_col} AS client, "
+                f"{lines_col} AS lignes FROM {table}"
+            ).fetchall()
+        except Exception:
+            continue
+        for row in rows:
+            try:
+                lines = json.loads(row["lignes"] or "[]")
+            except (TypeError, ValueError):
+                lines = []
+            if not isinstance(lines, list):
+                continue
+            matched = set()
+            for line in lines:
+                if not isinstance(line, dict):
+                    continue
+                reference = str(line.get("reference") or "").strip().lower()
+                text = " ".join(
+                    str(line.get(key) or "")
+                    for key in ("reference", "service", "description", "details")
+                ).lower()
+                for service in services:
+                    if service["id"] in matched:
+                        continue
+                    ref = str(service.get("reference") or "").strip().lower()
+                    name = str(service.get("name") or "").strip().lower()
+                    hit = bool(ref and (reference == ref or f"[{ref}]" in text))
+                    if not hit and not ref and name:
+                        hit = name in text
+                    if hit:
+                        matched.add(service["id"])
+                        usages[service["id"]].append({
+                            "type":   label,
+                            "num":    row["doc_num"] or f"#{row['id']}",
+                            "client": row["client"] or "",
+                            "url":    f"{url}{row['id']}",
+                        })
+    conn.close()
+    for items in usages.values():
+        items.sort(key=lambda item: (item["type"], str(item["num"])))
+    return usages
+
+
 @app.get("/services", response_class=HTMLResponse)
 async def services_page(request: Request):
     user = session_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-    return render(request, "services.html", {"services": _list_services(), "active": "services"})
+    services = _list_services()
+    usages = _service_usages(services)
+    for service in services:
+        service["usages"] = usages.get(service["id"], [])
+    return render(request, "services.html", {
+        "services": services,
+        "active":   "services",
+    })
 
 
 @app.get("/api/services")
@@ -1627,9 +1900,8 @@ async def api_services(request: Request):
 
 @app.post("/api/services")
 async def api_service_create(request: Request, item: ServiceItem):
-    user = session_user(request)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
     if not item.name.strip():
         raise HTTPException(status_code=400, detail="Nom du service requis")
     conn = get_db()
@@ -1643,9 +1915,8 @@ async def api_service_create(request: Request, item: ServiceItem):
 
 @app.put("/api/services/{service_id}")
 async def api_service_update(request: Request, service_id: int, item: ServiceItem):
-    user = session_user(request)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
     if not item.name.strip():
         raise HTTPException(status_code=400, detail="Nom du service requis")
     conn = get_db()
@@ -1658,9 +1929,8 @@ async def api_service_update(request: Request, service_id: int, item: ServiceIte
 
 @app.delete("/api/services/{service_id}")
 async def api_service_delete(request: Request, service_id: int):
-    user = session_user(request)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Réservé à l'administrateur")
+    if not session_user(request):
+        raise HTTPException(status_code=401, detail="Non authentifié")
     conn = get_db()
     conn.execute("DELETE FROM services WHERE id=?", (service_id,))
     conn.commit(); conn.close()
@@ -1691,7 +1961,7 @@ async def view_invoice(request: Request, invoice_id: int):
     if not inv:
         raise HTTPException(status_code=404, detail="Facture introuvable")
     inv["services"] = json.loads(inv.get("services") or "[]")
-    auto_edit = request.query_params.get("edit") == "1" and user["role"] == "admin"
+    auto_edit = request.query_params.get("edit") == "1"
     return render(request, "invoice.html", {
         "facture_num":  inv["facture_num"],
         "invoice":      inv,
@@ -1727,7 +1997,7 @@ async def view_proforma(request: Request, proforma_id: int):
     if not pro:
         raise HTTPException(status_code=404, detail="Proforma introuvable")
     pro["lignes"] = json.loads(pro.get("lignes") or "[]")
-    auto_edit = request.query_params.get("edit") == "1" and user["role"] == "admin"
+    auto_edit = request.query_params.get("edit") == "1"
     return render(request, "proforma.html", {
         "proforma_num": pro["proforma_num"],
         "proforma":     pro,
@@ -1782,8 +2052,6 @@ async def update_proforma(request: Request, proforma_id: int, data: ProformaCrea
     user = session_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Non authentifié")
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
     conn = get_db()
     existing = conn.execute("SELECT id FROM proformas WHERE id = ?", (proforma_id,)).fetchone()
     if not existing:
@@ -1888,7 +2156,7 @@ async def view_devis(request: Request, devis_id: int):
     if not dev:
         raise HTTPException(status_code=404, detail="Devis introuvable")
     dev["lignes"] = json.loads(dev.get("lignes") or "[]")
-    auto_edit = request.query_params.get("edit") == "1" and user["role"] == "admin"
+    auto_edit = request.query_params.get("edit") == "1"
     return render(request, "devis.html", {
         "devis_num":    dev["devis_num"],
         "devis":        dev,
@@ -1944,8 +2212,6 @@ async def update_devis(request: Request, devis_id: int, data: DevisCreate):
     user = session_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Non authentifié")
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
     conn = get_db()
     existing = conn.execute("SELECT id FROM devis WHERE id = ?", (devis_id,)).fetchone()
     if not existing:
@@ -2001,10 +2267,12 @@ async def view_bc(request: Request, bc_id: int):
     if not bc:
         raise HTTPException(status_code=404, detail="Bon de commande introuvable")
     bc["lignes"] = json.loads(bc.get("lignes") or "[]")
+    auto_edit = request.query_params.get("edit") == "1"
     return render(request, "bon_commande.html", {
         "bc_num":       bc["bc_num"],
         "bc":           bc,
         "readonly":     True,
+        "auto_edit":    auto_edit,
         "creator":      bc.get("created_by") or "—",
         "current_user": user
     })
@@ -2045,6 +2313,37 @@ async def create_bc(request: Request, data: BonCommandeCreate):
         raise HTTPException(status_code=409, detail=f"Le bon de commande {data.bc_num} existe déjà")
 
 
+@app.put("/api/bons-commande/{bc_id}")
+async def update_bc(request: Request, bc_id: int, data: BonCommandeCreate):
+    user = session_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    conn = get_db()
+    existing = conn.execute("SELECT id FROM bons_commande WHERE id = ?", (bc_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Bon de commande introuvable")
+    conn.execute("""
+        UPDATE bons_commande SET
+            bc_date=?, client_adresse_a=?, client_nom=?, client_rc=?, client_nif=?,
+            client_nis=?, client_art=?, client_tel=?, client_adresse=?,
+            lignes=?, montant_ht=?, montant_tva=?, montant_ttc=?,
+            montant_lettre=?, mode_reglement=?
+        WHERE id=?
+    """, (
+        data.bc_date,
+        data.client_adresse_a, data.client_nom, data.client_rc, data.client_nif,
+        data.client_nis, data.client_art, data.client_tel, data.client_adresse,
+        json.dumps([l.model_dump() for l in data.lignes]),
+        data.montant_ht, data.montant_tva, data.montant_ttc,
+        data.montant_lettre, data.mode_reglement,
+        bc_id
+    ))
+    conn.commit()
+    conn.close()
+    return {"success": True, "id": bc_id}
+
+
 @app.get("/bv/new", response_class=HTMLResponse)
 async def new_bv(request: Request):
     user = session_user(request)
@@ -2070,10 +2369,12 @@ async def view_bv(request: Request, bv_id: int):
     if not bv:
         raise HTTPException(status_code=404, detail="Bon de versement introuvable")
     bv["lignes"] = json.loads(bv.get("lignes") or "[]")
+    auto_edit = request.query_params.get("edit") == "1"
     return render(request, "bon_versement.html", {
         "bv_num":       bv["bv_num"],
         "bv":           bv,
         "readonly":     True,
+        "auto_edit":    auto_edit,
         "creator":      bv.get("created_by") or "—",
         "current_user": user
     })
@@ -2112,6 +2413,37 @@ async def create_bv(request: Request, data: BonVersementCreate):
         conn.rollback()
         conn.close()
         raise HTTPException(status_code=409, detail=f"Le bon de versement {data.bv_num} existe déjà")
+
+
+@app.put("/api/bons-versement/{bv_id}")
+async def update_bv(request: Request, bv_id: int, data: BonVersementCreate):
+    user = session_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Non authentifié")
+    conn = get_db()
+    existing = conn.execute("SELECT id FROM bons_versement WHERE id = ?", (bv_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Bon de versement introuvable")
+    conn.execute("""
+        UPDATE bons_versement SET
+            bv_date=?, client_adresse_a=?, client_nom=?, client_rc=?, client_nif=?,
+            client_nis=?, client_art=?, client_tel=?, client_adresse=?,
+            lignes=?, montant_ht=?, montant_tva=?, montant_ttc=?,
+            montant_lettre=?, mode_reglement=?
+        WHERE id=?
+    """, (
+        data.bv_date,
+        data.client_adresse_a, data.client_nom, data.client_rc, data.client_nif,
+        data.client_nis, data.client_art, data.client_tel, data.client_adresse,
+        json.dumps([l.model_dump() for l in data.lignes]),
+        data.montant_ht, data.montant_tva, data.montant_ttc,
+        data.montant_lettre, data.mode_reglement,
+        bv_id
+    ))
+    conn.commit()
+    conn.close()
+    return {"success": True, "id": bv_id}
 
 
 @app.post("/api/invoices")
@@ -2153,8 +2485,6 @@ async def update_invoice(request: Request, invoice_id: int, data: InvoiceCreate)
     user = session_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Non authentifié")
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
     conn = get_db()
     existing = conn.execute("SELECT id FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
     if not existing:

@@ -37,6 +37,10 @@
     .btn-edit { background: #eff6ff; color: #1d4ed8; padding: 7px 12px; }
     .btn-small { background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 6px; font-weight: bold; cursor: pointer; }
     .btn-small:hover { background: #eef2f7; }
+    .inline-money { width: 105px; padding: 5px 7px; border: 1px solid #d1d5db; border-radius: 5px; font: inherit; text-align: right; color: #16a34a; font-weight: bold; background: #fff; }
+    .inline-money:focus { border-color: #16a34a; outline: 2px solid #dcfce7; }
+    .cur { font-size: 11px; color: #6b7280; margin-left: 4px; }
+    .supplier-cell { white-space: normal; overflow-wrap: anywhere; }
     .search { max-width: 260px; }
     .tbl-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
@@ -165,8 +169,8 @@
                 {% if pct > 100 %}{% set pct = 100 %}{% endif %}
                 <tr data-id="{{ s.id }}" data-name="{{ s.name|e }}" data-contact="{{ s.contact|e }}" data-phone="{{ s.phone|e }}" data-email="{{ s.email|e }}" data-address="{{ s.address|e }}" data-notes="{{ s.notes|e }}">
                     <td>
-                        <b>{{ s.name }}</b>
-                        {% if s.notes %}<div class="muted">{{ s.notes }}</div>{% endif %}
+                        <div class="supplier-cell"><b>{{ s.name }}</b>
+                        {% if s.notes %}<div class="muted">{{ s.notes }}</div>{% endif %}</div>
                     </td>
                     <td>
                         {{ s.contact }}
@@ -191,7 +195,7 @@
                     <td class="act">
                         <button class="btn-small" onclick="toggleInvoices({{ s.id }})">Factures ({{ s.invoice_count }})</button>
                         <button class="btn btn-edit" onclick="editSupplier(this)">Modifier</button>
-                        {% if current_user.role == 'admin' %}<button class="btn btn-del" onclick="deleteSupplier({{ s.id }})">&#10005;</button>{% endif %}
+                        <button class="btn btn-del" onclick="deleteSupplier({{ s.id }})">&#10005;</button>
                     </td>
                 </tr>
                 <tr class="invoice-details" data-parent="{{ s.id }}" hidden>
@@ -220,9 +224,23 @@
                                     <tr data-id="{{ inv.id }}" data-supplier_id="{{ inv.supplier_id }}" data-invoice_ref="{{ inv.invoice_ref|e }}" data-invoice_date="{{ inv.invoice_date|e }}" data-amount="{{ inv.amount }}" data-paid_amount="{{ inv.paid_amount }}" data-notes="{{ inv.notes|e }}">
                                         <td><b>{{ inv.invoice_ref or '—' }}</b>{% if inv.notes %}<div class="muted">{{ inv.notes }}</div>{% endif %}</td>
                                         <td>{{ inv.invoice_date or '—' }}</td>
-                                        <td class="num">{{ "{:,.2f}".format(inv_total).replace(",", " ").replace(".", ",") }} DA</td>
-                                        <td class="num">{{ "{:,.2f}".format(inv_paid).replace(",", " ").replace(".", ",") }} DA</td>
-                                        <td class="num"><b>{{ "{:,.2f}".format(inv_rest).replace(",", " ").replace(".", ",") }} DA</b></td>
+                                        <td class="num">
+                                            <input type="number" class="inline-money" min="0" step="0.01"
+                                                   value="{{ inv.amount or 0 }}"
+                                                   data-original="{{ inv.amount or 0 }}"
+                                                   data-id="{{ inv.id }}" data-field="amount"
+                                                   onchange="saveInvoiceAmount(this)" title="Montant — modifiable">
+                                            <span class="cur">DA</span>
+                                        </td>
+                                        <td class="num">
+                                            <input type="number" class="inline-money" min="0" step="0.01"
+                                                   value="{{ inv.paid_amount or 0 }}"
+                                                   data-original="{{ inv.paid_amount or 0 }}"
+                                                   data-id="{{ inv.id }}" data-field="paid_amount"
+                                                   onchange="saveInvoiceAmount(this)" title="Payé — modifiable">
+                                            <span class="cur">DA</span>
+                                        </td>
+                                        <td class="num"><b class="inv-rest">{{ "{:,.2f}".format(inv_rest).replace(",", " ").replace(".", ",") }} DA</b></td>
                                         <td>
                                             {% if inv_total <= 0 %}
                                                 <span class="badge none">Sans montant</span>
@@ -236,7 +254,7 @@
                                         </td>
                                         <td class="act">
                                             <button class="btn btn-edit" onclick="editInvoice(this)">Modifier</button>
-                                            {% if current_user.role == 'admin' %}<button class="btn btn-del" onclick="deleteInvoice({{ inv.id }})">&#10005;</button>{% endif %}
+                                            <button class="btn btn-del" onclick="deleteInvoice({{ inv.id }})">&#10005;</button>
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -356,6 +374,47 @@ async function deleteInvoice(id) {
     if (!confirm('Supprimer cette facture fournisseur ?')) return;
     const res = await fetch('/api/supplier-invoices/' + id, {method: 'DELETE'});
     if (res.ok) location.reload(); else toast('Erreur lors de la suppression', 'error');
+}
+
+function formatMoney(value) {
+    return Number(value).toFixed(2).replace('.', ',');
+}
+
+async function saveInvoiceAmount(input) {
+    const value = parseFloat(input.value);
+    if (!isFinite(value) || value < 0) {
+        input.value = input.dataset.original;
+        toast('Montant invalide', 'error');
+        return;
+    }
+    const row = input.closest('tr');
+    const amountInput = row.querySelector('[data-field="amount"]');
+    const paidInput = row.querySelector('[data-field="paid_amount"]');
+    const amount = parseFloat(amountInput.value) || 0;
+    const paid = parseFloat(paidInput.value) || 0;
+    if (amount > 0 && paid > amount) {
+        input.value = input.dataset.original;
+        toast('Le montant payé dépasse le montant de la facture', 'error');
+        return;
+    }
+    const body = {};
+    body[input.dataset.field] = value;
+    const res = await fetch('/api/supplier-invoices/' + input.dataset.id + '/amounts', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+        input.value = input.dataset.original;
+        const err = await res.json().catch(() => ({}));
+        toast(err.detail || "Erreur lors de l'enregistrement", 'error');
+        return;
+    }
+    input.dataset.original = String(value);
+    row.setAttribute('data-' + input.dataset.field, String(value));
+    const restCell = row.querySelector('.inv-rest');
+    if (restCell) restCell.textContent = formatMoney(Math.max(amount - paid, 0)) + ' DA';
+    toast('Montant mis à jour', 'success');
 }
 
 function toggleInvoices(id) {

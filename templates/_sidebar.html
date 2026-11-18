@@ -56,12 +56,12 @@
         <a class="sb-link {% if request.url.path.startswith('/services') %}active{% endif %}" href="/services"><span class="ic">&#128230;</span> Services</a>
     </div>
     <div class="sb-group">
-        <div class="sb-label">Nouveau document</div>
-        <a class="sb-link {% if request.url.path.startswith('/invoice') %}active{% endif %}" href="/invoice/new"><span class="ic">&#129534;</span> Facture</a>
-        <a class="sb-link {% if request.url.path.startswith('/proforma') %}active{% endif %}" href="/proforma/new"><span class="ic">&#128196;</span> Proforma</a>
-        <a class="sb-link {% if request.url.path.startswith('/devis') %}active{% endif %}" href="/devis/new"><span class="ic">&#128221;</span> Devis</a>
-        <a class="sb-link {% if request.url.path.startswith('/bc') %}active{% endif %}" href="/bc/new"><span class="ic">&#128230;</span> Bon de commande</a>
-        <a class="sb-link {% if request.url.path.startswith('/bv') %}active{% endif %}" href="/bv/new"><span class="ic">&#128176;</span> Bon de versement</a>
+        <div class="sb-label">Documents</div>
+        <a class="sb-link {% if request.url.path.startswith('/documents/factures') or request.url.path.startswith('/invoice/') %}active{% endif %}" href="/documents/factures"><span class="ic">&#129534;</span> Factures</a>
+        <a class="sb-link {% if request.url.path.startswith('/documents/proformas') or request.url.path.startswith('/proforma/') %}active{% endif %}" href="/documents/proformas"><span class="ic">&#128196;</span> Proformas</a>
+        <a class="sb-link {% if request.url.path.startswith('/documents/devis') or request.url.path.startswith('/devis/') %}active{% endif %}" href="/documents/devis"><span class="ic">&#128221;</span> Devis</a>
+        <a class="sb-link {% if request.url.path.startswith('/documents/bons-commande') or request.url.path.startswith('/bc/') %}active{% endif %}" href="/documents/bons-commande"><span class="ic">&#128230;</span> Bons de commande</a>
+        <a class="sb-link {% if request.url.path.startswith('/documents/bons-versement') or request.url.path.startswith('/bv/') %}active{% endif %}" href="/documents/bons-versement"><span class="ic">&#128176;</span> Bons de versement</a>
     </div>
     {% if current_user and current_user.role == 'admin' %}
     <div class="sb-group">

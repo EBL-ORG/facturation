@@ -463,13 +463,13 @@
 
 <!-- Toolbar -->
 <div class="toolbar no-print">
-    <a href="/" class="btn btn-back">&#8592; Retour à la liste</a>
+    <a href="/documents/proformas" class="btn btn-back">&#8592; Retour à la liste</a>
     <button class="btn btn-primary" onclick="window.print()">&#128438; Imprimer / PDF</button>
     <button class="btn btn-download" id="btn-download" onclick="downloadPDF()">&#11015; Télécharger PDF</button>
     {% if not readonly %}
     <button class="btn btn-save" id="btn-save" onclick="saveProforma()">&#128190; Sauvegarder</button>
     {% endif %}
-    {% if readonly and current_user.role == 'admin' %}
+    {% if readonly %}
     <button class="btn btn-primary" id="btn-edit" onclick="enableEdit()">&#9998; Modifier</button>
     <button class="btn btn-save" id="btn-save-edit" style="display:none" onclick="saveEdit()">&#128190; Enregistrer les modifications</button>
     {% endif %}
@@ -530,7 +530,7 @@
     <div class="inv-billed" style="font-size: {{ company.billed_text_size }}px">
         <div class="inv-billed-title">Client</div>
         <div class="inv-field"><b>Code :</b> <input type="text" id="client-code" class="inv-billed-input"></div>
-        <div class="inv-field"><b>Raison sociale :</b> <input type="text" id="client-raison" class="inv-billed-input name"></div>
+        <div class="inv-field"><b>Raison sociale :</b> <textarea id="client-raison" class="inv-billed-input name" rows="1"></textarea></div>
         <div class="inv-field"><b>Nom :</b> <input type="text" id="client-nom" class="inv-billed-input"></div>
         <div class="inv-field"><b>Adresse :</b> <input type="text" id="client-adresse" class="inv-billed-input"></div>
         <div class="inv-field"><b>RC :</b> <input type="text" id="client-rc" class="inv-billed-input"></div>
@@ -874,7 +874,7 @@ async function saveProforma() {
         const data = await res.json();
         if (res.ok) {
             showToast('Proforma sauvegardé avec succès !', 'success');
-            setTimeout(() => window.location.href = '/', 1500);
+            setTimeout(() => window.location.href = '/documents/proformas', 1500);
         } else {
             showToast(data.detail || 'Erreur lors de la sauvegarde.', 'error');
             btn.disabled = false;
@@ -894,6 +894,8 @@ function enableEdit() {
         el.style.cursor = '';
     });
     document.getElementById('add-row-btn').style.display = '';
+    const servicePicker = document.getElementById('service-picker');
+    if (servicePicker) servicePicker.style.display = 'flex';
     document.querySelectorAll('.btn-danger').forEach(b => b.style.display = '');
     document.getElementById('btn-edit').style.display = 'none';
     document.getElementById('btn-save-edit').style.display = '';

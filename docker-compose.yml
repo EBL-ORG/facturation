@@ -1,0 +1,14 @@
+services:
+  facturation:
+    build: .
+    container_name: facturation
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./facturation.db:/app/facturation.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5050/login', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

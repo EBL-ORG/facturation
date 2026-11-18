@@ -437,15 +437,20 @@
     const BC_NUM    = {{ bc_num | tojson }};
     const BC_DATA   = {{ bc | tojson if bc else 'null' }};
     const IS_READONLY = {{ 'true' if readonly else 'false' }};
+    const AUTO_EDIT   = {{ 'true' if auto_edit else 'false' }};
 </script>
 
 <!-- Toolbar -->
 <div class="toolbar no-print">
-    <a href="/" class="btn btn-back">&#8592; Retour à la liste</a>
+    <a href="/documents/bons-commande" class="btn btn-back">&#8592; Retour à la liste</a>
     <button class="btn btn-primary" onclick="window.print()">&#128438; Imprimer / PDF</button>
     <button class="btn btn-download" id="btn-download" onclick="downloadPDF()">&#11015; Télécharger PDF</button>
     {% if not readonly %}
     <button class="btn btn-save" id="btn-save" onclick="saveBC()">&#128190; Sauvegarder</button>
+    {% endif %}
+    {% if readonly %}
+    <button class="btn btn-primary" id="btn-edit" onclick="enableEdit()">&#9998; Modifier</button>
+    <button class="btn btn-save" id="btn-save-edit" style="display:none" onclick="saveEdit()">&#128190; Enregistrer les modifications</button>
     {% endif %}
     {% if readonly and creator %}
     <span class="user-info" style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:5px 12px; color:#16a34a;">
@@ -504,7 +509,7 @@
     <div class="inv-billed" style="font-size: {{ company.billed_text_size }}px">
         <div class="inv-billed-title">Client</div>
         <div class="inv-field"><b>Adressé à :</b> <input type="text" id="client-adresse-a" class="inv-billed-input"></div>
-        <div class="inv-field"><b>Nom :</b> <input type="text" id="client-nom" class="inv-billed-input name"></div>
+        <div class="inv-field"><b>Nom :</b> <textarea id="client-nom" class="inv-billed-input name" rows="1"></textarea></div>
         <div class="inv-field"><b>RC :</b> <input type="text" id="client-rc" class="inv-billed-input"></div>
         <div class="inv-field"><b>NIF :</b> <input type="text" id="client-nif" class="inv-billed-input"></div>
         <div class="inv-field"><b>NIS :</b> <input type="text" id="client-nis" class="inv-billed-input"></div>
@@ -611,6 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.getElementById('add-row-btn').style.display = 'none';
         document.querySelectorAll('.btn-danger').forEach(b => b.style.display = 'none');
+        if (AUTO_EDIT) enableEdit();
     }
 
     calculateTotals();
@@ -784,7 +790,7 @@ async function saveBC() {
         const data = await res.json();
         if (res.ok) {
             showToast('Bon de commande sauvegardé avec succès !', 'success');
-            setTimeout(() => window.location.href = '/', 1500);
+            setTimeout(() => window.location.href = '/documents/bons-commande', 1500);
         } else {
             showToast(data.detail || 'Erreur lors de la sauvegarde.', 'error');
             btn.disabled = false;
@@ -794,6 +800,80 @@ async function saveBC() {
         showToast('Erreur réseau. Vérifiez le serveur.', 'error');
         btn.disabled = false;
         btn.textContent = '💾 Sauvegarder';
+    }
+}
+
+function enableEdit() {
+    document.querySelectorAll('.invoice input, .invoice textarea').forEach(el => {
+        if (el.id !== 'bc-num') el.removeAttribute('readonly');
+        el.style.cursor = '';
+    });
+    document.getElementById('add-row-btn').style.display = '';
+    const servicePicker = document.getElementById('service-picker');
+    if (servicePicker) servicePicker.style.display = 'flex';
+    document.querySelectorAll('.btn-danger').forEach(b => b.style.display = '');
+    document.getElementById('btn-edit').style.display = 'none';
+    document.getElementById('btn-save-edit').style.display = '';
+}
+
+async function saveEdit() {
+    const btn = document.getElementById('btn-save-edit');
+    btn.disabled = true;
+    btn.textContent = 'Enregistrement...';
+
+    const lignes = [];
+    document.querySelectorAll('#lignes-body tr').forEach(tr => {
+        const ta  = tr.querySelector('.desc-input');
+        const qty = parseFloat(tr.querySelector('.qty-input')?.value) || 0;
+        const pu  = parseFloat(tr.querySelector('.pu-input')?.value)  || 0;
+        const tax = tr.querySelector('.taxes-input')?.value || 'TVA 19%';
+        lignes.push({
+            description:   ta?.value    || '',
+            quantite:      qty,
+            prix_unitaire: pu,
+            taxes:         tax,
+            montant:       qty * pu
+        });
+    });
+
+    const payload = {
+        bc_num:           document.getElementById('bc-num').value,
+        bc_date:          document.getElementById('bc-date').value         || null,
+        client_adresse_a: document.getElementById('client-adresse-a').value || null,
+        client_nom:       document.getElementById('client-nom').value      || null,
+        client_rc:        document.getElementById('client-rc').value       || null,
+        client_nif:       document.getElementById('client-nif').value      || null,
+        client_nis:       document.getElementById('client-nis').value      || null,
+        client_art:       document.getElementById('client-art').value      || null,
+        client_tel:       document.getElementById('client-tel').value      || null,
+        client_adresse:   document.getElementById('client-adresse').value  || null,
+        mode_reglement:   document.getElementById('mode-reglement').value  || null,
+        montant_lettre:   document.getElementById('montant-lettre-text').textContent || null,
+        lignes,
+        montant_ht:  parseDisp('montant-ht'),
+        montant_tva: parseDisp('montant-tva'),
+        montant_ttc: parseDisp('montant-ttc'),
+    };
+
+    try {
+        const res = await fetch(`/api/bons-commande/${BC_DATA.id}`, {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (res.ok) {
+            showToast('Bon de commande modifié avec succès !', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showToast(result.detail || 'Erreur lors de la modification.', 'error');
+            btn.disabled = false;
+            btn.textContent = '💾 Enregistrer les modifications';
+        }
+    } catch (e) {
+        showToast('Erreur réseau. Vérifiez le serveur.', 'error');
+        btn.disabled = false;
+        btn.textContent = '💾 Enregistrer les modifications';
     }
 }
 

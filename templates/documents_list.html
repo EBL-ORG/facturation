@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ cfg.title }} - {{ company.name }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 13px; background: #f1f5f9; color: #1f2937; min-height: 100vh; }
+        .container { width: 100%; max-width: 100%; margin: 0 auto; padding: 28px 24px 70px; }
+        .page-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+        h1 { font-size: 22px; color: #1e3a5f; margin-bottom: 4px; }
+        .sub { color: #6b7280; }
+        .btn-new { background: #2563eb; color: #fff; padding: 10px 18px; border-radius: 7px; text-decoration: none; font-weight: bold; white-space: nowrap; }
+        .btn-new:hover { background: #1d4ed8; }
+        .table-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(15,23,42,.08); overflow: hidden; }
+        .table-card-header { padding: 15px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .table-card-header h2 { font-size: 14px; color: #1e293b; }
+        .count { color: #6b7280; font-weight: normal; }
+        .search-input { border: 1px solid #d1d5db; border-radius: 5px; padding: 7px 12px; font-size: 12px; outline: none; width: 220px; }
+        .search-input:focus { border-color: #2563eb; }
+        .tbl-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8fafc; padding: 10px 14px; text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: #6b7280; border-bottom: 2px solid #e5e7eb; white-space: nowrap; }
+        td { padding: 11px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        tbody tr:hover { background: #f8fafc; }
+        tbody tr:last-child td { border-bottom: none; }
+        th.num, td.num { text-align: right; white-space: nowrap; }
+        .doc-num { font-weight: bold; font-family: monospace; font-size: 13px; }
+        .badge-date { background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 20px; font-size: 11px; white-space: nowrap; }
+        .client-cell { white-space: normal; overflow-wrap: anywhere; min-width: 190px; line-height: 1.4; }
+        .amount { color: #16a34a; font-weight: bold; }
+        .cur { font-size: 11px; margin-left: 4px; color: #6b7280; }
+        .actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+        .btn-view, .btn-edit, .btn-del { border-radius: 5px; padding: 5px 11px; font: inherit; font-size: 12px; font-weight: bold; cursor: pointer; text-decoration: none; white-space: nowrap; }
+        .btn-view { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+        .btn-edit { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+        .btn-del { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .btn-view:hover { background: #dbeafe; }
+        .btn-edit:hover { background: #ffedd5; }
+        .btn-del:hover { background: #fee2e2; }
+        .empty { text-align: center; color: #9ca3af; padding: 44px 20px; }
+        .empty .icon { font-size: 40px; margin-bottom: 8px; }
+        #toast { display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 28px; border-radius: 6px; font-weight: bold; color: #fff; z-index: 1000; }
+        #toast.success { background: #16a34a; } #toast.error { background: #dc2626; }
+        @media (max-width: 760px) { .container { padding-top: 64px; } }
+        @media print { .sidebar, .sb-toggle, .btn-new, .search-input, .actions { display: none !important; } body { padding-left: 0; } }
+    </style>
+</head>
+<body>
+{% include "_sidebar.html" %}
+<main class="container">
+    <div class="page-top">
+        <div>
+            <h1>{{ cfg.title }}</h1>
+            <p class="sub">Retrouvez tous les documents, modifiez-les ou supprimez-les.</p>
+        </div>
+        <a class="btn-new" href="{{ cfg.new_url }}">&#43; {{ cfg.new_label }}</a>
+    </div>
+
+    <div class="table-card">
+        <div class="table-card-header">
+            <h2>Liste des {{ cfg.title|lower }} <span class="count">({{ rows|length }})</span></h2>
+            <input type="text" class="search-input" id="search" placeholder="Rechercher…" oninput="filterRows()">
+        </div>
+        {% if rows %}
+        <div class="tbl-wrap">
+            <table id="docs-table">
+                <thead>
+                    <tr>
+                        <th>N°</th>
+                        <th>Date</th>
+                        <th>Client</th>
+                        {% for a in cfg.amounts %}<th class="num">{{ a.label }}</th>{% endfor %}
+                        <th>Créé par</th>
+                        <th class="num">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td><span class="doc-num" style="color:{{ cfg.color }}">{{ row[cfg.num_col] }}</span></td>
+                        <td>
+                            {% if row[cfg.date_col] %}<span class="badge-date">{{ row[cfg.date_col] }}</span>{% else %}<span style="color:#9ca3af">—</span>{% endif %}
+                        </td>
+                        <td class="client-cell" title="{{ row[cfg.client_col] or '' }}">{{ row[cfg.client_col] or '—' }}</td>
+                        {% for a in cfg.amounts %}
+                        <td class="num amount">{{ "{:,.2f}".format(row[a.key] or 0).replace(",", " ").replace(".", ",") }} DA</td>
+                        {% endfor %}
+                        <td style="color:#6b7280">{{ row.created_by or '—' }}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn-view" onclick="window.location.href='{{ cfg.view_url }}{{ row.id }}'">&#128065; Voir</button>
+                                {% if cfg.edit_url %}<button class="btn-edit" onclick="window.location.href='{{ cfg.edit_url }}{{ row.id }}{{ cfg.edit_suffix }}'">&#9998; Modifier</button>{% endif %}
+                                <button class="btn-del" onclick="deleteDoc('{{ doc_type }}', {{ row.id }}, this)">&#10005; Supprimer</button>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty">
+            <div class="icon">&#128196;</div>
+            <p>Aucun document enregistré.</p>
+            <a class="btn-new" href="{{ cfg.new_url }}">&#43; {{ cfg.new_label }}</a>
+        </div>
+        {% endif %}
+    </div>
+</main>
+<div id="toast"></div>
+<script>
+function toast(message, type) {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.className = type;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 2500);
+}
+
+function filterRows() {
+    const q = document.getElementById('search').value.toLowerCase();
+    document.querySelectorAll('#docs-table tbody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+async function deleteDoc(docType, id, btn) {
+    if (!confirm('Supprimer ce document ? Cette action est définitive.')) return;
+    const res = await fetch('/api/documents/' + docType + '/' + id, {method: 'DELETE'});
+    if (!res.ok) {
+        toast('Erreur lors de la suppression', 'error');
+        return;
+    }
+    btn.closest('tr').remove();
+    toast('Document supprimé', 'success');
+}
+</script>
+</body>
+</html>
