@@ -166,6 +166,7 @@
             color: #6b7280;
             padding: 0 10px;
         }
+        .lines-table th.w-ref { width: 120px; }
         .lines-table th.w-price { width: 170px; text-align: right; }
         .lines-table th.w-del { width: 44px; }
         .lines-table td {
@@ -232,6 +233,8 @@
 
         .picker { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 4px 0 10px; padding: 12px; background: #f0f7ff; border: 1px solid #bfdbfe; border-radius: 10px; }
         .picker select { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #93c5fd; border-radius: 7px; font: inherit; background: #fff; }
+        .picker input[type="search"] { flex: 1; min-width: 180px; padding: 10px 12px; border: 1px solid #93c5fd; border-radius: 7px; font: inherit; background: #fff; outline: none; }
+        .picker input[type="search"]:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
         .btn-pick { background: #2563eb; color: #fff; border: none; border-radius: 7px; padding: 10px 16px; font-weight: bold; cursor: pointer; }
         .btn-pick:hover { background: #1d4ed8; }
         .pick-link { font-size: 12px; color: #1d4ed8; }
@@ -446,6 +449,11 @@
             vertical-align: top; word-break: break-word; overflow-wrap: anywhere;
         }
         .inv-table .c-ref { width: 8%; }
+        .inv-table .c-sref { width: 10%; }
+        .inv-table td.c-sref input {
+            width: 100%; border: none; background: transparent;
+            font: inherit; color: #000; outline: none;
+        }
         .inv-table .c-amount { width: 18%; }
         .inv-table tbody { counter-reset: invrow; }
         .inv-table tbody tr { counter-increment: invrow; }
@@ -475,13 +483,6 @@
             font-weight: 600;
         }
         .inv-words .words-text { font-weight: normal; font-style: italic; letter-spacing: .2px; }
-
-        .inv-stamp {
-            position: absolute; right: 20mm; bottom: 42mm;
-            width: 110px; height: 110px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 11px; color: #1B3A5F; font-weight: 700; letter-spacing: .6px;
-        }
 
         .inv-footer {
             display: flex; align-items: center; gap: 12px;
@@ -656,6 +657,7 @@
                 <table class="lines-table">
                     <thead>
                         <tr>
+                            <th class="w-ref">Référence</th>
                             <th>Service</th>
                             <th>Détails</th>
                             <th class="w-price">Prix total (DA)</th>
@@ -665,10 +667,11 @@
                     <tbody id="lines-body"></tbody>
                 </table>
                 <div class="picker no-print">
+                    <input id="service-picker-filter" type="search" placeholder="Filtrer un service (nom ou référence)…" oninput="filterServiceOptions()" aria-label="Filtrer les services">
                     <select id="service-picker">
                         <option value="">— Choisir un service du catalogue —</option>
                         {% for sv in services %}
-                        <option value="{{ sv.id }}" data-name="{{ sv.name|e }}" data-details="{{ sv.details|e }}" data-price="{{ sv.price or 0 }}">{{ sv.name }}{% if sv.price %} — {{ '%.2f'|format(sv.price) }} DA{% endif %}</option>
+                        <option value="{{ sv.id }}" data-name="{{ sv.name|e }}" data-reference="{{ sv.reference|e }}" data-details="{{ sv.details|e }}" data-price="{{ sv.price or 0 }}" data-search="{{ ((sv.reference or '') ~ ' ' ~ sv.name)|e }}">{% if sv.reference %}[{{ sv.reference }}] {% endif %}{{ sv.name }}{% if sv.price %} — {{ '%.2f'|format(sv.price) }} DA{% endif %}</option>
                         {% endfor %}
                     </select>
                     <button type="button" class="btn-pick" onclick="addFromCatalogue()">+ Ajouter ce service</button>
@@ -762,6 +765,7 @@
                 <thead>
                     <tr>
                         <th class="c-ref">REF</th>
+                        <th class="c-sref">RÉF. SERVICE</th>
                         <th>DÉSIGNATION</th>
                         <th>DÉTAILS</th>
                         <th class="num c-amount">MONTANT</th>
@@ -785,8 +789,6 @@
                 <span class="words-text" id="pv-montant-lettre"></span>
             </div>
         </div>
-
-        <div class="inv-stamp">CACHET</div>
 
         <div class="inv-footer">
             <div class="inv-logo">{% if company.logo_footer or company.logo %}<img src="/logo/footer" alt="Logo {{ company.name }}" style="width: {{ company.logo_footer_size }}px">{% else %}{{ company.name[:1] }}{% endif %}</div>
@@ -845,9 +847,16 @@ function today() {
 }
 
 // ── Line management ───────────────────────────────────────────────────────
-function addLine(service = '', details = '', prix = '') {
+function addLine(service = '', details = '', prix = '', reference = '') {
     const tbody = document.getElementById('lines-body');
     const tr = document.createElement('tr');
+
+    const tdRef = document.createElement('td');
+    const inputRef = document.createElement('input');
+    inputRef.type = 'text';
+    inputRef.placeholder = 'Réf.';
+    inputRef.value = reference;
+    tdRef.appendChild(inputRef);
 
     const tdService = document.createElement('td');
     const taService = document.createElement('textarea');
@@ -881,8 +890,22 @@ function addLine(service = '', details = '', prix = '') {
     del.onclick = () => { tr.remove(); refresh(); };
     tdDel.appendChild(del);
 
-    tr.append(tdService, tdDetails, tdPrice, tdDel);
+    tr.append(tdRef, tdService, tdDetails, tdPrice, tdDel);
     tbody.appendChild(tr);
+}
+
+function filterServiceOptions() {
+    const input = document.getElementById('service-picker-filter');
+    const sel = document.getElementById('service-picker');
+    if (!input || !sel) return;
+    const q = (input.value || '').trim().toLowerCase();
+    [...sel.options].forEach(o => {
+        if (!o.value) return;
+        const match = !q || (o.dataset.search || o.textContent.toLowerCase()).indexOf(q) !== -1;
+        o.hidden = !match;
+        o.disabled = !match;
+    });
+    if (sel.selectedIndex > 0 && sel.options[sel.selectedIndex].hidden) sel.value = '';
 }
 
 function addFromCatalogue() {
@@ -894,7 +917,7 @@ function addFromCatalogue() {
         const v = [...tr.querySelectorAll('textarea,input')].map(x => x.value.trim()).join('');
         if (!v) tr.remove();
     });
-    addLine(o.dataset.name, o.dataset.details, parseFloat(o.dataset.price) || '');
+    addLine(o.dataset.name, o.dataset.details, parseFloat(o.dataset.price) || '', o.dataset.reference || '');
     sel.value = '';
     refresh();
 }
@@ -905,6 +928,7 @@ function collectLines() {
         const tas = row.querySelectorAll('textarea');
         const prix = row.querySelector('input[type="number"]');
         lines.push({
+            reference: (row.querySelector('input[type="text"]')?.value || '').trim(),
             service: (tas[0]?.value || '').trim(),
             details: (tas[1]?.value || '').trim(),
             prix: parseFloat(prix?.value) || 0
@@ -968,7 +992,7 @@ function refresh() {
     if (filled.length === 0) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 4;
+        td.colSpan = 5;
         td.style.textAlign = 'center';
         td.style.color = '#9ca3af';
         td.textContent = 'Les lignes de service apparaîtront ici.';
@@ -978,15 +1002,18 @@ function refresh() {
         filled.forEach(line => {
             const tr = document.createElement('tr');
             const cRef = document.createElement('td');
+            const cSref = document.createElement('td');
             const c1 = document.createElement('td');
             const c2 = document.createElement('td');
             const c3 = document.createElement('td');
             cRef.className = 'c-ref';
+            cSref.className = 'c-sref';
+            cSref.textContent = line.reference || '';
             c1.textContent = line.service;
             c2.textContent = line.details;
             c3.textContent = line.prix ? fmt(line.prix) + ' DA' : '';
             c3.className = 'num c-amount';
-            tr.append(cRef, c1, c2, c3);
+            tr.append(cRef, cSref, c1, c2, c3);
             pvBody.appendChild(tr);
         });
     }

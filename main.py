@@ -750,6 +750,7 @@ def render(request: Request, template_name: str, context: Optional[dict] = None,
 # ── Pydantic models ────────────────────────────────────────────────────────
 
 class ServiceRow(BaseModel):
+    reference: str = ""
     service: str = ""
     details: str = ""
     prix: float = 0.0
@@ -1810,7 +1811,7 @@ class ServiceItem(BaseModel):
 def _list_services() -> list:
     conn = get_db()
     rows = conn.execute(
-        "SELECT id, name, reference, details, price FROM services ORDER BY name"
+        "SELECT id, name, reference, details, price FROM services ORDER BY reference COLLATE NOCASE, name COLLATE NOCASE"
     ).fetchall()
     conn.close()
     return rows

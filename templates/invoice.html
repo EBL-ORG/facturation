@@ -373,7 +373,7 @@
 
         .mode-row .field-input { margin-left: 6px; }
 
-        /* ── Signature / Cachet ── */
+        /* ── Signature ── */
         .signature-section {
             display: flex;
             gap: 20px;
@@ -563,6 +563,11 @@
             vertical-align: top; word-break: break-word; overflow-wrap: anywhere;
         }
         .inv-table .c-ref { width: 8%; }
+        .inv-table .c-sref { width: 10%; }
+        .inv-table td.c-sref input {
+            width: 100%; border: none; background: transparent;
+            font: inherit; color: #000; outline: none;
+        }
         .inv-table .c-amount { width: 18%; }
         .inv-table tbody { counter-reset: invrow; }
         .inv-table tbody tr { counter-increment: invrow; }
@@ -592,13 +597,6 @@
             font-weight: 600;
         }
         .inv-words .words-text { font-weight: normal; font-style: italic; letter-spacing: .2px; }
-
-        .inv-stamp {
-            position: absolute; right: 20mm; bottom: 42mm;
-            width: 110px; height: 110px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 11px; color: #1B3A5F; font-weight: 700; letter-spacing: .6px;
-        }
 
         .inv-footer {
             display: flex; align-items: center; gap: 12px;
@@ -741,6 +739,7 @@
             <thead>
                 <tr>
                     <th class="c-ref">REF</th>
+                    <th class="c-sref">RÉF. SERVICE</th>
                     <th>DÉSIGNATION</th>
                     <th>DÉTAILS</th>
                     <th class="num c-amount">MONTANT</th>
@@ -771,8 +770,6 @@
             <span class="words-text" id="montant-lettre-text"></span>
         </div>
     </div>
-
-    <div class="inv-stamp">CACHET</div>
 
     <div class="inv-footer">
         <div class="inv-logo">{% if company.logo_footer or company.logo %}<img src="/logo/footer" alt="Logo {{ company.name }}" style="width: {{ company.logo_footer_size }}px">{% else %}{{ company.name[:1] }}{% endif %}</div>
@@ -825,7 +822,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const services = INVOICE_DATA.services || [];
         if (services.length > 0) {
-            services.forEach(s => addRow(s.service, s.details, s.prix));
+            services.forEach(s => addRow(s.service, s.details, s.prix, s.reference || ''));
         } else {
             addRow(); addRow(); addRow();
         }
@@ -878,11 +875,12 @@ function today() {
 }
 
 // ── Row management ────────────────────────────────────────────────────────
-function addRow(service = '', details = '', prix = '') {
+function addRow(service = '', details = '', prix = '', reference = '') {
     const tbody = document.getElementById('services-body');
     const tr = document.createElement('tr');
     tr.innerHTML = `
         <td class="c-ref"></td>
+        <td class="c-sref"><input type="text" value="${escHtml(reference)}" placeholder="Réf."></td>
         <td>
             <textarea rows="2" oninput="autoResize(this)">${escHtml(service)}</textarea>
         </td>
@@ -907,8 +905,7 @@ window.addServiceToDocument = function (svc) {
             && !row.querySelector('input[type="number"]')?.value;
         if (empty) row.remove();
     });
-    const service = (svc.reference ? '[' + svc.reference + '] ' : '') + (svc.name || '');
-    addRow(service, svc.details || '', parseFloat(svc.price) || '');
+    addRow(svc.name || '', svc.details || '', parseFloat(svc.price) || '', svc.reference || '');
 };
 
 function removeRow(btn) {
@@ -972,6 +969,7 @@ async function saveInvoice() {
         const tas  = row.querySelectorAll('textarea');
         const prix = row.querySelector('input[type="number"]');
         services.push({
+            reference: (row.querySelector('.c-sref input')?.value || '').trim(),
             service: (tas[0]?.value || '').trim(),
             details: (tas[1]?.value || '').trim(),
             prix:    parseFloat(prix?.value) || 0

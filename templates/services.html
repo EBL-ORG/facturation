@@ -62,8 +62,11 @@
     </div>
 
     <div class="card">
-        <div class="card-head">Liste des services <span style="color:#6b7280;font-weight:normal;font-size:12px">{{ services|length }} service(s)</span></div>
-        <table>
+        <div class="card-head">
+            <span>Liste des services <span id="service-count" style="color:#6b7280;font-weight:normal;font-size:12px">{{ services|length }} service(s)</span></span>
+            <input id="s-filter" type="search" placeholder="Filtrer par référence, nom ou détails…" oninput="filterServices()" style="max-width:320px">
+        </div>
+        <table id="services-table">
             <thead><tr><th>Référence</th><th>Service</th><th>Détails</th><th class="num">Prix (DA)</th><th></th></tr></thead>
             <tbody>
             {% for s in services %}
@@ -87,6 +90,18 @@
 <div id="toast"></div>
 <script>
 let editingId = null;
+function filterServices() {
+    const q = (document.getElementById('s-filter').value || '').trim().toLowerCase();
+    const rows = document.querySelectorAll('#services-table tbody tr[data-id]');
+    let shown = 0;
+    rows.forEach(function (row) {
+        const text = (row.dataset.name + ' ' + row.dataset.reference + ' ' + row.dataset.details).toLowerCase();
+        const match = !q || text.indexOf(q) !== -1;
+        row.style.display = match ? '' : 'none';
+        if (match) shown++;
+    });
+    document.getElementById('service-count').textContent = shown + ' service(s)';
+}
 function toast(m, t) { const e = document.getElementById('toast'); e.textContent = m; e.className = t; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 2500); }
 function resetForm() {
     editingId = null;
