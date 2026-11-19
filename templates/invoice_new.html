@@ -448,16 +448,12 @@
             padding: 7px 8px; border-bottom: 1px solid #000;
             vertical-align: top; word-break: break-word; overflow-wrap: anywhere;
         }
-        .inv-table .c-ref { width: 8%; }
         .inv-table .c-sref { width: 10%; }
         .inv-table td.c-sref input {
             width: 100%; border: none; background: transparent;
             font: inherit; color: #000; outline: none;
         }
         .inv-table .c-amount { width: 18%; }
-        .inv-table tbody { counter-reset: invrow; }
-        .inv-table tbody tr { counter-increment: invrow; }
-        .inv-table td.c-ref::before { content: counter(invrow, decimal-leading-zero); font-weight: bold; }
         .inv-table td textarea {
             width: 100%; min-height: 24px; border: none; background: transparent;
             font: inherit; color: #000; resize: none; outline: none; display: block;
@@ -764,7 +760,6 @@
 <table class="inv-table">
                 <thead>
                     <tr>
-                        <th class="c-ref">REF</th>
                         <th class="c-sref">RÉF. SERVICE</th>
                         <th>DÉSIGNATION</th>
                         <th>DÉTAILS</th>
@@ -992,7 +987,7 @@ function refresh() {
     if (filled.length === 0) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 5;
+        td.colSpan = 4;
         td.style.textAlign = 'center';
         td.style.color = '#9ca3af';
         td.textContent = 'Les lignes de service apparaîtront ici.';
@@ -1001,19 +996,17 @@ function refresh() {
     } else {
         filled.forEach(line => {
             const tr = document.createElement('tr');
-            const cRef = document.createElement('td');
             const cSref = document.createElement('td');
             const c1 = document.createElement('td');
             const c2 = document.createElement('td');
             const c3 = document.createElement('td');
-            cRef.className = 'c-ref';
             cSref.className = 'c-sref';
             cSref.textContent = line.reference || '';
             c1.textContent = line.service;
             c2.textContent = line.details;
             c3.textContent = line.prix ? fmt(line.prix) + ' DA' : '';
             c3.className = 'num c-amount';
-            tr.append(cRef, cSref, c1, c2, c3);
+            tr.append(cSref, c1, c2, c3);
             pvBody.appendChild(tr);
         });
     }

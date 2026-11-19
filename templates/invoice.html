@@ -562,16 +562,12 @@
             padding: 7px 8px; border-bottom: 1px solid #000;
             vertical-align: top; word-break: break-word; overflow-wrap: anywhere;
         }
-        .inv-table .c-ref { width: 8%; }
         .inv-table .c-sref { width: 10%; }
         .inv-table td.c-sref input {
             width: 100%; border: none; background: transparent;
             font: inherit; color: #000; outline: none;
         }
         .inv-table .c-amount { width: 18%; }
-        .inv-table tbody { counter-reset: invrow; }
-        .inv-table tbody tr { counter-increment: invrow; }
-        .inv-table td.c-ref::before { content: counter(invrow, decimal-leading-zero); font-weight: bold; }
         .inv-table td textarea {
             width: 100%; min-height: 24px; border: none; background: transparent;
             font: inherit; color: #000; resize: none; outline: none; display: block;
@@ -738,7 +734,6 @@
 <table class="inv-table">
             <thead>
                 <tr>
-                    <th class="c-ref">REF</th>
                     <th class="c-sref">RÉF. SERVICE</th>
                     <th>DÉSIGNATION</th>
                     <th>DÉTAILS</th>
@@ -879,7 +874,6 @@ function addRow(service = '', details = '', prix = '', reference = '') {
     const tbody = document.getElementById('services-body');
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td class="c-ref"></td>
         <td class="c-sref"><input type="text" value="${escHtml(reference)}" placeholder="Réf."></td>
         <td>
             <textarea rows="2" oninput="autoResize(this)">${escHtml(service)}</textarea>
